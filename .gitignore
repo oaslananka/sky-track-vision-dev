@@ -1,0 +1,41 @@
+# SkyTrackVision
+
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+*.pyc
+
+# Environment & secrets
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Outputs
+outputs/
+logs/
+
+# Models (downloaded at runtime)
+models/*.pt
+
+# Temp files
+TEMP/
+JINMUT
+*.tmp
+
+# Build
+dist/
+build/
+*.egg-info/

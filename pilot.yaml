@@ -1,0 +1,102 @@
+mission_mode: PEDESTRIAN_WATCH
+overlay_mode: SHOWCASE
+auto_follow: true
+demo_mode: false
+
+airsim:
+  host: 127.0.0.1
+  port: 41451
+  vehicle_name: Drone
+  camera_name: front_center
+  camera_compress: true
+
+vision:
+  model_path: models/yolov8n.pt
+  preferred_device: cuda:0
+  use_half_precision: true
+  confidence_threshold: 0.50
+  inference_imgsz: 352
+  max_detections: 10
+  track_inference_interval: 3
+  max_lost_frames: 20
+  min_confirm_frames: 5
+  sticky_lock_timeout_frames: 20
+  sticky_lock_max_center_distance_px: 140.0
+  target_classes:
+    - truck
+    - bus
+    - car
+    - person
+    - bicycle
+    - motorcycle
+
+ibvs:
+  yaw_kp: 1.2
+  yaw_ki: 0.01
+  yaw_kd: 0.08
+  yaw_integral_clamp: 0.5
+  fwd_kp: 0.8
+  fwd_ki: 0.005
+  fwd_kd: 0.05
+  fwd_integral_clamp: 0.4
+  alt_kp: 0.6
+  alt_ki: 0.002
+  alt_kd: 0.04
+  alt_integral_clamp: 0.3
+  vx_inner_kp: 0.5
+  vx_inner_kd: 0.02
+  vz_inner_kp: 0.4
+  vz_inner_kd: 0.02
+  max_yaw_rate: 1.0
+  max_vx: 10.0
+  max_vz: 3.0
+  desired_area_ratio: 0.04
+
+safety:
+  obstacle_front_threshold_m: 1.5
+  obstacle_side_threshold_m: 0.8
+  altitude_min_m: 1.2
+  landing_caution_m: 0.5
+  lidar_cluster_threshold: 3500
+  lidar_cluster_distance_factor: 0.05
+
+pilot:
+  provider: openai
+  model: gpt-5-mini  # Alternative: gpt-5-nano
+  llm_temperature: 1.0  # gpt-5 chat.completions: default sampling value
+  llm_top_p: 1.0  # gpt-5 chat.completions: default sampling value
+  llm_max_tokens: 2048  # Cap response length for safety
+  log_level: DEBUG
+  max_context_messages: 60  # Increased from 40 for longer missions (up to ~5 min @ 30fps)
+  tool_retry_limit: 3
+  mission_timeout_s: 360.0
+  tick_duration_s: 0.1
+  scan_yaw_rate: 0.06
+  cruise_altitude_m: 4.0
+  traffic_monitor_cruise_altitude_m: 2.6
+  preflight_ascent_velocity: 2.5
+  altitude_recovery_grace_s: 2.5
+  traffic_monitor_road_follow_speed: 0.42
+  traffic_monitor_road_seek_speed: 0.18
+  traffic_monitor_road_search_speed: 0.08
+  traffic_monitor_road_follow_confidence: 0.025
+  traffic_monitor_road_seek_confidence: 0.008
+  traffic_monitor_road_follow_yaw_gain: 0.24
+  traffic_monitor_road_center_yaw_gain: 0.18
+  traffic_monitor_road_search_yaw_rate: 0.12
+  traffic_monitor_command_duration_s: 0.24
+  traffic_monitor_sensor_read_interval: 1
+  traffic_monitor_inference_interval: 5
+  traffic_monitor_altitude_hold_deadband_m: 0.25
+  traffic_monitor_altitude_hold_max_vz: 0.04
+  scan_forward_speed: 0.8
+  scan_lateral_speed: 0.35
+  scan_vertical_bias: 0.0
+  scan_straight_trigger_s: 1.5
+  scan_road_bias_enabled: true
+  scan_road_bias_gain: 0.35
+  scan_road_bias_clip: 0.45
+  orbit_lateral_speed: 0.65
+  reacquire_timeout_s: 3.5
+  unstick_velocity_threshold: 0.12
+  unstick_timeout_s: 1.25
