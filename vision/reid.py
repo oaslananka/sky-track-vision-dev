@@ -14,9 +14,11 @@ CLIP or OSNet embedding extraction.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 
 from config.runtime_logging import log_event
 
@@ -53,8 +55,8 @@ def extract_hsv_embedding(
         return None
 
     hsv_crop = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
-    h_hist, _ = np.histogram(hsv_crop[:, :, 0].ravel(), bins=36, range=(0, 180))
-    h_hist = h_hist.astype(np.float32) * 2.0
+    h_raw, _ = np.histogram(hsv_crop[:, :, 0].ravel(), bins=36, range=(0, 180))
+    h_hist: npt.NDArray[np.floating[Any]] = h_raw.astype(np.float32) * 2.0
     s_hist, _ = np.histogram(hsv_crop[:, :, 1].ravel(), bins=16, range=(0, 256))
     s_hist = s_hist.astype(np.float32)
 

@@ -6,6 +6,7 @@ from typing import Any
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 
 from autonomy.contracts import FramePacket
 from config.settings import AirSimConfig
@@ -85,9 +86,9 @@ class DroneCameraStream:
                     self._last_seg_frame = np.ascontiguousarray(seg[:, :, ::-1])
                     return self._last_seg_frame
             buf = np.frombuffer(resp.image_data_uint8, dtype=np.uint8)
-            seg = cv2.imdecode(buf, cv2.IMREAD_COLOR)
-            if seg is not None:
-                self._last_seg_frame = seg
+            decoded: npt.NDArray[np.uint8] | None = cv2.imdecode(buf, cv2.IMREAD_COLOR)  # type: ignore[assignment]
+            if decoded is not None:
+                self._last_seg_frame = decoded
             return self._last_seg_frame
         except Exception:
             return self._last_seg_frame

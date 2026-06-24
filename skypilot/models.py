@@ -17,6 +17,9 @@ class ChatResponse(TypedDict):
 class PilotToolResult(TypedDict, total=False):
     ok: bool
     message: str
+    error: str
     mission_state: str
     home_position: list[float] | None
     data: dict[str, Any]
+    scene_state: dict[str, Any]
+    required_sequence: list[str]

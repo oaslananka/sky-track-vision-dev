@@ -369,7 +369,7 @@ def test_transition_along_path_returns_error_dict_on_partial_failure() -> None:
 
     # IDLE -> REPORT is not a valid transition; the path would fail.
     # Use a path with an impossible intermediate step.
-    result = dispatcher._transition_along_path(
+    result = dispatcher._transition_along_path(  # type: ignore[attr-defined]
         [MissionState.REPORT],  # IDLE -> REPORT is not allowed
         reason="test",
     )

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 import time
+from typing import Any
 
 import pytest
 
@@ -11,7 +12,7 @@ from config.settings import AirSimConfig
 
 
 class _SuccessfulClient:
-    def __init__(self, *_args, **_kwargs) -> None:
+    def __init__(self, *_args: Any, **_kwargs: Any) -> None:
         self.api_enabled = False
         self.armed = False
 
@@ -64,7 +65,7 @@ def test_confirm_connection_with_timeout_raises_timeout(monkeypatch: pytest.Monk
     fake_airsim = type("FakeAirSim", (), {"MultirotorClient": _HangingClient})
     monkeypatch.setattr(client_module, "airsim", fake_airsim)
     manager = AirSimConnectionManager(AirSimConfig(timeout_s=0.1))
-    client = fake_airsim.MultirotorClient()
+    client = fake_airsim.MultirotorClient()  # type: ignore[attr-defined]
 
     with pytest.raises(TimeoutError, match="confirmConnection timed out"):
         manager._confirm_connection_with_timeout(client)

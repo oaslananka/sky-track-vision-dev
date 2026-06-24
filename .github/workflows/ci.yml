@@ -42,7 +42,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install build deps (airsim needs numpy+msgpack)
-        run: pip install numpy msgpack-rpc-python
+        run: pip install setuptools numpy msgpack-rpc-python
 
       - name: Build airsim wheel
         run: pip wheel --no-build-isolation --no-deps --wheel-dir /tmp/wheelhouse airsim
@@ -51,7 +51,7 @@ jobs:
         run: pip install --find-links /tmp/wheelhouse -r requirements-dev.txt
 
       - name: Mypy
-        run: mypy .
+        run: mypy --install-types --non-interactive . 2>&1 || mypy .
 
   test:
     name: Tests
@@ -67,8 +67,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install build deps (airsim needs numpy+msgpack)
-        run: pip install numpy msgpack-rpc-python
+      - name: Install build deps (airsim needs numpy+msgpack+setuptools)
+        run: pip install setuptools numpy msgpack-rpc-python
 
       - name: Build airsim wheel
         run: pip wheel --no-build-isolation --no-deps --wheel-dir /tmp/wheelhouse airsim
@@ -90,8 +90,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install build deps (airsim needs numpy+msgpack)
-        run: pip install numpy msgpack-rpc-python
+      - name: Install build deps (airsim needs numpy+msgpack+setuptools)
+        run: pip install setuptools numpy msgpack-rpc-python
 
       - name: Build airsim wheel
         run: pip wheel --no-build-isolation --no-deps --wheel-dir /tmp/wheelhouse airsim

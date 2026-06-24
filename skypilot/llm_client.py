@@ -14,13 +14,13 @@ try:
     from openai import APIError, AsyncOpenAI, RateLimitError
 except ModuleNotFoundError:  # pragma: no cover - optional dependency for local testing/docs
 
-    class APIError(Exception):
+    class APIError(Exception):  # type: ignore[no-redef]
         """Fallback API error used when the OpenAI SDK is unavailable."""
 
-    class RateLimitError(Exception):
+    class RateLimitError(Exception):  # type: ignore[no-redef]
         """Fallback rate-limit error used when the OpenAI SDK is unavailable."""
 
-    AsyncOpenAI = Any
+    AsyncOpenAI = Any  # type: ignore[assignment,misc]
 
 from config.runtime_logging import log_event
 from config.settings import PilotConfig
@@ -81,7 +81,7 @@ class OpenAIProviderAdapter:
                     request_kwargs["temperature"] = self.temperature
                     request_kwargs["top_p"] = self.top_p
 
-                response = await self.client.chat.completions.create(  # type: ignore[call-overload]
+                response = await self.client.chat.completions.create(
                     **request_kwargs,
                 )
 

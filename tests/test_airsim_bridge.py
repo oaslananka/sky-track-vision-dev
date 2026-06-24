@@ -3,6 +3,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any, cast
 
+import pytest
+
 from airsim_control import movement as movement_module
 from airsim_control.movement import DroneMovementController
 from airsim_control.sensors import SensorSuiteReader
@@ -183,7 +185,7 @@ def test_sensor_reader_and_movement_controller_share_same_client_rpc_lock() -> N
 
 
 def test_movement_controller_joins_velocity_and_hover_futures(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = _FakeAirSimClient()
     cfg = AirSimConfig()

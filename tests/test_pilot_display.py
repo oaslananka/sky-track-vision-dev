@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from typing import Any
 
 import cv2
 import pytest
@@ -116,13 +117,13 @@ class _FakeReporter:
 
     def record_runtime_snapshot(
         self,
-        mission,
+        mission: Any,
         *,
-        detections,
-        target,
-        safety_reason,
-        frame=None,
-        timestamp_ns=None,
+        detections: object,
+        target: object,
+        safety_reason: str | None,
+        frame: object = None,
+        timestamp_ns: object = None,
     ) -> None:
         self.records.append(
             {
@@ -297,7 +298,8 @@ def test_pilot_display_records_runtime_snapshot_for_reporter(
 
     assert reporter.records
     assert reporter.records[0]["mission_state"] in {"SCAN", "TRACK"}
-    assert len(reporter.records[0]["detections"]) == 1
+    detections = reporter.records[0]["detections"]
+    assert isinstance(detections, list) and len(detections) == 1
     assert reporter.records[0]["frame"] is None
 
 
@@ -1088,7 +1090,7 @@ def test_pilot_display_starts_and_stops_perception_worker(
     display._running = False
     display._llm_tail = _LLMLogTail(max_lines=2)
     display._llm_logger = logging.getLogger("skytrackvision.skypilot.llm")
-    display._perception_worker = _FakePerceptionWorker()
+    display._perception_worker = _FakePerceptionWorker()  # type: ignore[assignment]
     display._window_enabled = False
     display._thread = None
 
@@ -1099,15 +1101,15 @@ def test_pilot_display_starts_and_stops_perception_worker(
         def stop(self) -> None:
             pass
 
-    display._cam_thread = _FakeCameraThread()
+    display._cam_thread = _FakeCameraThread()  # type: ignore[assignment]
 
     monkeypatch.setattr(PilotDisplay, "_run_loop", lambda self: None)
 
     display.start()
     display.stop()
 
-    assert display._perception_worker.started == 1
-    assert display._perception_worker.stopped == 1
+    assert display._perception_worker.started == 1  # type: ignore[attr-defined]
+    assert display._perception_worker.stopped == 1  # type: ignore[attr-defined]
 
 
 def test_pilot_display_fit_text_to_width_truncates_long_line() -> None:

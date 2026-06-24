@@ -1182,8 +1182,8 @@ class PilotDisplay:
                     roi_seg = seg[int(sh * 0.58) :, :]
                     road_mask_seg = cv2.inRange(
                         roi_seg,
-                        (75, 0, 0),
-                        (85, 255, 255),
+                        np.array([75, 0, 0], dtype=np.uint8),
+                        np.array([85, 255, 255], dtype=np.uint8),
                     )
                     bias, confidence, center_offset = _mask_guidance(road_mask_seg)
                     if confidence >= self._cfg.traffic_monitor_road_seek_confidence:
@@ -1200,7 +1200,9 @@ class PilotDisplay:
 
         roi = frame[int(h * 0.58) :, :]
         hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-        road_mask = cv2.inRange(hsv, (0, 0, 35), (180, 55, 165))
+        road_mask = cv2.inRange(
+            hsv, np.array([0, 0, 35], dtype=np.uint8), np.array([180, 55, 165], dtype=np.uint8)
+        )
         road_mask = cv2.GaussianBlur(road_mask, (5, 5), 0)
         _threshold, road_mask = cv2.threshold(road_mask, 80, 255, cv2.THRESH_BINARY)
         bias, confidence, center_offset = _mask_guidance(road_mask)
@@ -1234,7 +1236,9 @@ class PilotDisplay:
             cv2.rectangle(self._panel_mask, (right_panel_x1, 0), (w, right_panel_h), _DARK, -1)
             cv2.rectangle(self._panel_mask, (0, h - 40), (w, h), _DARK, -1)
             self._panel_mask_shape = (h, w)
-        cv2.addWeighted(self._panel_mask, 0.72, canvas, 0.28, 0, canvas)
+        panel_mask = self._panel_mask
+        if panel_mask is not None:
+            cv2.addWeighted(panel_mask, 0.72, canvas, 0.28, 0, canvas)
 
         # ── Crosshair ────────────────────────────────────────
         cx, cy = w // 2, h // 2

@@ -69,7 +69,7 @@ def test_perception_worker_passes_frame_to_tracker_for_reid(
 
         assert len(latest.detections) == 1
         tracker = worker._tracker
-        assert tracker.frame_seen_event.is_set()
-        assert tracker.last_frame_shape == (120, 160, 3)
+        assert tracker.frame_seen_event.is_set()  # type: ignore[attr-defined]
+        assert tracker.last_frame_shape == (120, 160, 3)  # type: ignore[attr-defined]
     finally:
         worker.stop()

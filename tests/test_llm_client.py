@@ -74,7 +74,7 @@ async def test_chat_raises_value_error_on_null_message() -> None:
     mock_response = MagicMock()
     mock_response.choices = [mock_choice]
 
-    async def _fake_create(**_kwargs):
+    async def _fake_create(**_kwargs: object) -> MagicMock:
         return mock_response
 
     mock_client.chat.completions.create = _fake_create

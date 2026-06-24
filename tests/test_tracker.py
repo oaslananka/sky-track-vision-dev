@@ -269,6 +269,7 @@ def test_tracker_survives_singular_covariance_without_crash() -> None:
     # Establish track state.
     tracker.update([detection], priority_class="car", frame_size=(640, 480))
     # Corrupt the covariance to a singular zero matrix.
+    assert tracker._state is not None
     tracker._state.p = np.zeros((4, 4))
 
     # This call must not raise even though the Kalman update has a singular matrix.

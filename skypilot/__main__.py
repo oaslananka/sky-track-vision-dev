@@ -16,7 +16,7 @@ from airsim_control.sensors import SensorSuiteReader
 from autonomy.contracts import MissionState
 from autonomy.ibvs import IBVSController
 from autonomy.mission import MissionFSM
-from autonomy.reporting import EventReporter
+from autonomy.reporting import EventReporter, MissionReport
 from autonomy.safety import SafetyEvaluator
 from autonomy.targeting import is_priority_compatible
 from config.runtime_logging import configure_logging, log_event
@@ -37,7 +37,7 @@ async def _execute_mission(
     llm: LLMPilot,
     task: str,
     timeout_s: float,
-):
+) -> MissionReport:
     return await asyncio.wait_for(llm.run_mission(task), timeout=timeout_s)
 
 
