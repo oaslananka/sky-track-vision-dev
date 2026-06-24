@@ -5,6 +5,7 @@ import logging
 from typing import Any, Protocol
 
 from autonomy.contracts import MissionReport, MissionState
+from autonomy.mission_spec import MissionSpec, MissionVerifier, parse_mission_spec
 from autonomy.reporting import EventReporter
 from config.runtime_logging import log_event
 from config.settings import PilotConfig
@@ -115,6 +116,8 @@ class LLMPilot:
         self._cfg = cfg
         self._mission_report_retrieved = False
         self._landing_completed = False
+        self._verifier = MissionVerifier()
+        self._spec: MissionSpec = MissionSpec(raw_task="")
 
     def _reset_completion_state(self) -> None:
         self._mission_report_retrieved = False
@@ -122,6 +125,20 @@ class LLMPilot:
 
     def _mission_completion_confirmed(self) -> bool:
         return self._mission_report_retrieved and self._landing_completed
+
+    def _compose_system(self) -> str:
+        """Append the auto-derived acceptance criteria so the planner knows what
+        the mission will actually be scored against (closes the planner↔verifier
+        loop). Falls back to the base prompt for tasks with no measurable goal."""
+        if not self._spec.objectives:
+            return SYSTEM_PROMPT
+        lines = "\n".join(f"  - {obj.description}" for obj in self._spec.objectives)
+        return (
+            f"{SYSTEM_PROMPT}\n"
+            "MISSION ACCEPTANCE CRITERIA (auto-derived; the mission is only a success "
+            "if ALL are met before you finish):\n"
+            f"{lines}\n"
+        )
 
     @staticmethod
     def _parse_tool_result(raw_result: str) -> dict[str, Any]:
@@ -147,6 +164,7 @@ class LLMPilot:
     async def run_mission(self, task: str) -> MissionReport:
         messages: list[dict[str, object]] = [{"role": "user", "content": task}]
         self._reset_completion_state()
+        self._spec = parse_mission_spec(task)
         log_event(
             logger,
             logging.DEBUG,
@@ -155,6 +173,7 @@ class LLMPilot:
             mission_id=self._reporter.mission_id,
             iteration=0,
             task=task,
+            objectives=[obj.description for obj in self._spec.objectives],
         )
         max_iterations = max(
             self._cfg.tool_retry_limit + self._cfg.max_context_messages,
@@ -173,7 +192,7 @@ class LLMPilot:
             response: ChatResponse = await self._client.chat(
                 messages=messages,
                 tools=self._tools.get_tool_schemas(),
-                system=SYSTEM_PROMPT,
+                system=self._compose_system(),
             )
             if not response["tool_calls"]:
                 log_event(
@@ -296,12 +315,22 @@ class LLMPilot:
                         continue
                     break
                 messages = [messages[0], *messages[cut:]]
-        mission_success = self._mission_completion_confirmed()
-        completion_reason = MissionState.REPORT.value
-        if not mission_success:
+        # Completion now requires BOTH the procedural protocol (REPORT ->
+        # get_mission_report -> land) AND the semantic objectives parsed from the
+        # task. A pilot that runs the closing sequence but never accomplished the
+        # objective (e.g. never saw the requested truck) is reported as a failure.
+        protocol_ok = self._mission_completion_confirmed()
+        prelim_report = self._reporter.finalize()
+        verdict = self._verifier.verify(self._spec, prelim_report)
+        mission_success = protocol_ok and verdict.passed
+        if mission_success:
+            completion_reason = MissionState.REPORT.value
+        elif not protocol_ok:
             completion_reason = (
                 "landed_without_report" if self._landing_completed else "mission_incomplete"
             )
+        else:
+            completion_reason = f"objectives_unmet ({verdict.summary})"
         log_event(
             logger,
             logging.DEBUG,
@@ -309,6 +338,10 @@ class LLMPilot:
             "Mission loop ended, finalizing report",
             mission_id=self._reporter.mission_id,
             mission_success=mission_success,
+            protocol_ok=protocol_ok,
+            objectives_measurable=verdict.measurable,
+            objectives_passed=verdict.passed,
+            objectives_summary=verdict.summary,
             report_retrieved=self._mission_report_retrieved,
             landing_completed=self._landing_completed,
             completion_reason=completion_reason,

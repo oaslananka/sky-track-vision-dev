@@ -23,3 +23,4 @@ class PilotToolResult(TypedDict, total=False):
     data: dict[str, Any]
     scene_state: dict[str, Any]
     required_sequence: list[str]
+    watchdog_trigger: str

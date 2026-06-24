@@ -115,6 +115,10 @@ class MissionState(StrEnum):
     ORBIT = "ORBIT"
     REPORT = "REPORT"
     BLOCKED = "BLOCKED"
+    # Universal safe-abort state, reachable from ANY state. Entered by the
+    # mission watchdog when a hard limit is breached (timeout, geofence,
+    # low battery, control deadlock) so the drone can recover unattended.
+    EMERGENCY = "EMERGENCY"
 
 
 @dataclass(slots=True)

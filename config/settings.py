@@ -80,6 +80,24 @@ class VisionConfig:
 
 
 @dataclass(slots=True)
+class WatchdogConfig:
+    """Mission-level hard limits that force a safe abort (EMERGENCY).
+
+    These are *unattended-flight* guardrails: when any limit is breached the
+    mission watchdog drives the FSM to EMERGENCY so the drone can recover
+    without a human in the loop. They sit above the per-frame SafetyEvaluator,
+    which handles immediate obstacle/altitude vetoes.
+    """
+
+    enabled: bool = True
+    max_mission_duration_s: float = 600.0  # hard cap above the soft pilot timeout
+    geofence_radius_m: float = 120.0  # max horizontal distance from home
+    max_altitude_m: float = 60.0  # absolute ceiling
+    battery_rtl_fraction: float = 0.20  # fraction at/below which we abort (None telemetry = skip)
+    min_person_separation_m: float = 2.5  # advisory minimum standoff from a tracked person
+
+
+@dataclass(slots=True)
 class AirSimConfig:
     host: str = "127.0.0.1"
     port: int = 41451
@@ -161,6 +179,7 @@ class AppConfig:
     vision: VisionConfig = field(default_factory=VisionConfig)
     ibvs: IBVSConfig = field(default_factory=IBVSConfig)
     safety: SafetyConfig = field(default_factory=SafetyConfig)
+    watchdog: WatchdogConfig = field(default_factory=WatchdogConfig)
     pilot: PilotConfig = field(default_factory=PilotConfig)
     mission_mode: str = "PEDESTRIAN_WATCH"
     overlay_mode: str = "SHOWCASE"

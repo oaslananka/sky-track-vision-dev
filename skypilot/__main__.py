@@ -19,6 +19,7 @@ from autonomy.mission import MissionFSM
 from autonomy.reporting import EventReporter, MissionReport
 from autonomy.safety import SafetyEvaluator
 from autonomy.targeting import is_priority_compatible
+from autonomy.watchdog import MissionWatchdog
 from config.runtime_logging import configure_logging, log_event
 from config.settings import load_app_config
 from skypilot.airsim_bridge import AirSimBridge
@@ -229,7 +230,8 @@ def run() -> None:
                 "target": {},
             }
 
-        tools = ToolDispatcher(fsm, _scene_provider, bridge, reporter)
+        watchdog = MissionWatchdog(cfg.watchdog)
+        tools = ToolDispatcher(fsm, _scene_provider, bridge, reporter, watchdog=watchdog)
         llm = LLMPilot(llm_client, tools, reporter, cfg.pilot)
         log_event(
             logger,

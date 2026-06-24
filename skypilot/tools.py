@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
@@ -10,6 +11,7 @@ from typing import Any
 
 from autonomy.contracts import MissionMode, MissionState
 from autonomy.mission import InvalidTransitionError, MissionFSM
+from autonomy.watchdog import MissionWatchdog, WatchdogVerdict
 from config.runtime_logging import log_event
 from skypilot.models import PilotToolResult
 
@@ -26,11 +28,13 @@ class ToolDispatcher:
         scene_provider: Callable[[], dict[str, Any]],
         bridge: Any,
         reporter: Any,
+        watchdog: MissionWatchdog | None = None,
     ) -> None:
         self._fsm = fsm
         self._scene_provider = scene_provider
         self._bridge = bridge
         self._reporter = reporter
+        self._watchdog = watchdog
         self._lock_loss_grace_frames = 3
         self._tools: dict[str, ToolHandler] = {
             "get_scene_state": self._get_scene_state,
@@ -85,6 +89,52 @@ class ToolDispatcher:
         except (TypeError, ValueError):
             return False
         return frames_since_seen <= self._lock_loss_grace_frames
+
+    def _check_watchdog(self) -> WatchdogVerdict | None:
+        """Evaluate the mission-envelope watchdog from current telemetry.
+
+        Returns ``None`` when no watchdog is configured or telemetry cannot be
+        read, so callers can treat "unknown" as "do not interfere".
+        """
+        if self._watchdog is None:
+            return None
+        try:
+            snapshot = self._bridge.read_sensor_snapshot(refresh=False)
+        except Exception:
+            return None
+        home = getattr(self._bridge, "home_position", None)
+        return self._watchdog.evaluate(
+            elapsed_s=self._reporter.elapsed_s,
+            position_ned=snapshot.telemetry.position_ned,
+            home_ned=home,
+            battery_fraction=None,
+        )
+
+    def _engage_emergency(self, verdict: WatchdogVerdict) -> PilotToolResult:
+        """Drive the FSM to EMERGENCY and stop the drone after a watchdog trip."""
+        self._fsm.emergency(reason=f"watchdog:{verdict.trigger}")
+        with contextlib.suppress(Exception):  # best-effort safe stop
+            self._bridge.request_hover()
+        log_event(
+            logger,
+            logging.WARNING,
+            "mission.watchdog",
+            "Mission watchdog tripped — engaging EMERGENCY",
+            mission_id=self._reporter.mission_id,
+            trigger=verdict.trigger,
+            reason=verdict.reason,
+            fsm_state=self._fsm.state.value,
+        )
+        return {
+            "ok": False,
+            "message": (
+                f"Mission aborted by safety watchdog: {verdict.reason}. The drone is "
+                "holding in EMERGENCY. End the mission now: set_mission_state(state='IDLE') "
+                "then request_land()."
+            ),
+            "mission_state": self._fsm.state.value,
+            "watchdog_trigger": verdict.trigger,
+        }
 
     def get_tool_schemas(self) -> list[dict[str, Any]]:
         def _object_schema(
@@ -265,19 +315,24 @@ class ToolDispatcher:
                 "mission_state": self._fsm.state.value,
             }
         telemetry = snapshot.telemetry
-        return {
-            "ok": True,
-            "data": {
-                "altitude_m": round(telemetry.altitude_m, 2),
-                "position_ned": list(telemetry.position_ned),
-                "velocity_ned": list(telemetry.velocity_ned),
-                "yaw_deg": round(telemetry.yaw_deg, 1),
-                "gps_valid": telemetry.gps_valid,
-                "is_airborne": self._bridge.is_airborne(),
-                "fsm_state": self._fsm.state.value,
-                "mission_elapsed_s": round(self._reporter.elapsed_s, 2),
-            },
+        data: dict[str, Any] = {
+            "altitude_m": round(telemetry.altitude_m, 2),
+            "position_ned": list(telemetry.position_ned),
+            "velocity_ned": list(telemetry.velocity_ned),
+            "yaw_deg": round(telemetry.yaw_deg, 1),
+            "gps_valid": telemetry.gps_valid,
+            "is_airborne": self._bridge.is_airborne(),
+            "fsm_state": self._fsm.state.value,
+            "mission_elapsed_s": round(self._reporter.elapsed_s, 2),
         }
+        verdict = self._check_watchdog()
+        if verdict is not None:
+            data["mission_envelope"] = {
+                "ok": not verdict.tripped,
+                "trigger": verdict.trigger,
+                "reason": verdict.reason,
+            }
+        return {"ok": True, "data": data}
 
     async def _set_mission_state(self, arguments: dict[str, Any]) -> PilotToolResult:
         state = MissionState(arguments["state"])
@@ -337,10 +392,8 @@ class ToolDispatcher:
                 "message": f"{from_state.value} -> {state.value} is not allowed",
                 "mission_state": self._fsm.state.value,
             }
-        try:
-            for step in path:
-                self._fsm.transition(step, reason="llm_tool")
-        except InvalidTransitionError as exc:
+        error = self._transition_along_path(path, reason="llm_tool")
+        if error is not None:
             log_event(
                 logger,
                 logging.WARNING,
@@ -350,14 +403,10 @@ class ToolDispatcher:
                 from_state=from_state.value,
                 to_state=state.value,
                 source="llm_tool",
-                reason=str(exc),
+                reason=error["message"],
                 fsm_state=self._fsm.state.value,
             )
-            return {
-                "ok": False,
-                "message": str(exc),
-                "mission_state": self._fsm.state.value,
-            }
+            return error
         log_event(
             logger,
             logging.INFO,
@@ -392,6 +441,29 @@ class ToolDispatcher:
                     return next_path
                 visited.add(nxt)
                 queue.append((nxt, next_path))
+        return None
+
+    def _transition_along_path(
+        self,
+        path: list[MissionState],
+        *,
+        reason: str,
+    ) -> PilotToolResult | None:
+        """Execute a resolved FSM path one step at a time.
+
+        Returns ``None`` when every step succeeds, or a structured error result
+        if any intermediate transition is rejected. Centralising this loop keeps
+        multi-hop path execution consistent and makes the resolved path auditable.
+        """
+        for step in path:
+            try:
+                self._fsm.transition(step, reason=reason)
+            except InvalidTransitionError as exc:
+                return {
+                    "ok": False,
+                    "message": str(exc),
+                    "mission_state": self._fsm.state.value,
+                }
         return None
 
     async def _request_hover(self, arguments: dict[str, Any]) -> PilotToolResult:
@@ -436,15 +508,9 @@ class ToolDispatcher:
                 "message": f"Cannot reach SCAN from {from_state.value}",
                 "mission_state": self._fsm.state.value,
             }
-        try:
-            for step in path:
-                self._fsm.transition(step, reason="llm_tool")
-        except InvalidTransitionError as exc:
-            return {
-                "ok": False,
-                "message": str(exc),
-                "mission_state": self._fsm.state.value,
-            }
+        error = self._transition_along_path(path, reason="llm_tool")
+        if error is not None:
+            return error
         log_event(
             logger,
             logging.INFO,
@@ -528,15 +594,9 @@ class ToolDispatcher:
                 "message": f"Cannot reach TRACK from {from_state.value}",
                 "mission_state": self._fsm.state.value,
             }
-        try:
-            for step in path:
-                self._fsm.transition(step, reason="llm_tool")
-        except InvalidTransitionError as exc:
-            return {
-                "ok": False,
-                "message": str(exc),
-                "mission_state": self._fsm.state.value,
-            }
+        error = self._transition_along_path(path, reason="llm_tool")
+        if error is not None:
+            return error
         log_event(
             logger,
             logging.INFO,
@@ -656,7 +716,18 @@ class ToolDispatcher:
                 ),
                 "mission_state": self._fsm.state.value,
             }
-        altitude_m = float(arguments.get("altitude_m", 10.0))
+        raw_altitude = arguments.get("altitude_m", 10.0)
+        try:
+            altitude_m = float(raw_altitude)
+        except (TypeError, ValueError):
+            return {
+                "ok": False,
+                "message": (
+                    f"Invalid altitude_m argument: {raw_altitude!r}. "
+                    "Provide a numeric altitude in meters (e.g. 10)."
+                ),
+                "mission_state": self._fsm.state.value,
+            }
         altitude_m = max(2.0, min(altitude_m, 50.0))  # Clamp 2-50m
         await asyncio.get_running_loop().run_in_executor(
             None,
@@ -714,6 +785,9 @@ class ToolDispatcher:
         )
         started = time.monotonic()
         while (time.monotonic() - started) < seconds:
+            watchdog_verdict = self._check_watchdog()
+            if watchdog_verdict is not None and watchdog_verdict.tripped:
+                return self._engage_emergency(watchdog_verdict)
             if self._fsm.state == MissionState.TRACK:
                 target = self._target_payload()
                 priority_class = self._priority_class()

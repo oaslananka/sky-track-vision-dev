@@ -31,12 +31,13 @@ class MissionFSM:
 
     _transitions: dict[MissionState, list[MissionState]] = field(
         default_factory=lambda: {
-            MissionState.IDLE: [MissionState.SCAN, MissionState.TRACK],
+            MissionState.IDLE: [MissionState.SCAN, MissionState.TRACK, MissionState.EMERGENCY],
             MissionState.SCAN: [
                 MissionState.TRACK,
                 MissionState.REPORT,
                 MissionState.BLOCKED,
                 MissionState.IDLE,
+                MissionState.EMERGENCY,
             ],
             MissionState.TRACK: [
                 MissionState.REACQUIRE,
@@ -45,17 +46,30 @@ class MissionFSM:
                 MissionState.SCAN,
                 MissionState.BLOCKED,
                 MissionState.IDLE,
+                MissionState.EMERGENCY,
             ],
-            MissionState.REACQUIRE: [MissionState.TRACK, MissionState.SCAN, MissionState.BLOCKED],
+            MissionState.REACQUIRE: [
+                MissionState.TRACK,
+                MissionState.SCAN,
+                MissionState.BLOCKED,
+                MissionState.EMERGENCY,
+            ],
             MissionState.MONITOR: [
                 MissionState.REPORT,
                 MissionState.TRACK,
                 MissionState.ORBIT,
                 MissionState.BLOCKED,
+                MissionState.EMERGENCY,
             ],
-            MissionState.ORBIT: [MissionState.TRACK, MissionState.BLOCKED],
-            MissionState.REPORT: [MissionState.IDLE],
-            MissionState.BLOCKED: [MissionState.IDLE, MissionState.SCAN],
+            MissionState.ORBIT: [
+                MissionState.TRACK,
+                MissionState.BLOCKED,
+                MissionState.EMERGENCY,
+            ],
+            MissionState.REPORT: [MissionState.IDLE, MissionState.EMERGENCY],
+            MissionState.BLOCKED: [MissionState.IDLE, MissionState.SCAN, MissionState.EMERGENCY],
+            # EMERGENCY is a safe sink: once recovered the mission resets to IDLE.
+            MissionState.EMERGENCY: [MissionState.IDLE],
         },
         init=False,
     )
@@ -87,6 +101,26 @@ class MissionFSM:
         self._state = to
         self._state_entered_at = time.monotonic()
         self._transition_log.append((to.value, self._state_entered_at, reason))
+
+    def emergency(self, reason: str = "") -> bool:
+        """Force an unconditional transition into EMERGENCY from any state.
+
+        Unlike :meth:`transition`, this never raises: the whole point of the
+        emergency path is that it must succeed from *any* state — including
+        states the transition graph does not anticipate — so an unattended
+        mission can always reach a safe abort. Returns ``False`` if already in
+        EMERGENCY (no-op), ``True`` if a transition was performed.
+        """
+        if self._state == MissionState.EMERGENCY:
+            return False
+        self._prev_state = self._state
+        self._state = MissionState.EMERGENCY
+        self._state_entered_at = time.monotonic()
+        self._transition_log.append(
+            (MissionState.EMERGENCY.value, self._state_entered_at, reason or "emergency")
+        )
+        logger.warning("EMERGENCY engaged from %s (reason=%s)", self._prev_state.value, reason)
+        return True
 
     def check_timeout_recovery(self) -> MissionState | None:
         """Check if current state has timed out and return recovery state if needed."""
@@ -183,6 +217,10 @@ class MissionFSM:
             )
 
         match self._state:
+            case MissionState.EMERGENCY:
+                # Deterministic safe stop; the runtime watchdog/pilot decides
+                # whether to hold, return home, or land from here.
+                return MotionIntent(primitive=MotionPrimitive.HOVER, reason="emergency safe-stop")
             case MissionState.SCAN:
                 return MotionIntent(primitive=MotionPrimitive.SCAN, reason="scan area")
             case MissionState.TRACK if target and target.is_confirmed:
