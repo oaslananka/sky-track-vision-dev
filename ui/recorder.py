@@ -81,9 +81,7 @@ class RealtimeRecorder:
     def add(self, frame: Any) -> None:
         h, w = frame.shape[:2]
         if self._frame_size is not None and (w, h) != self._frame_size:
-            raise ValueError(
-                f"Frame size changed: expected {self._frame_size}, got ({w}, {h})"
-            )
+            raise ValueError(f"Frame size changed: expected {self._frame_size}, got ({w}, {h})")
         if self._writer is None:
             self._open(frame)
         writer = self._writer

@@ -61,9 +61,7 @@ class SkyTrackVisionApp:
         self._overlay_visible = True
         self._demo = DemoDirector()
         self._recorder: RealtimeRecorder | None = (
-            RealtimeRecorder(record_path, fps=record_fps)
-            if record_path is not None
-            else None
+            RealtimeRecorder(record_path, fps=record_fps) if record_path is not None else None
         )
 
         self._connection: AirSimConnectionManager | None = None
