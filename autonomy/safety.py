@@ -18,7 +18,13 @@ class SafetyEvaluator:
         self._proximity_fail_count = 0
         self._last_good_evaluation: SafetyEvaluation | None = None
 
-    def evaluate(self, snapshot: SensorSnapshot, connection_ok: bool) -> SafetyEvaluation:
+    def evaluate(
+        self,
+        snapshot: SensorSnapshot,
+        connection_ok: bool,
+        *,
+        tracked_class: str | None = None,
+    ) -> SafetyEvaluation:
         if not connection_ok:
             result = SafetyEvaluation(
                 state=SafetyState.SAFETY_OVERRIDE,
@@ -72,6 +78,14 @@ class SafetyEvaluator:
             (forward_velocity**2) / (2 * max_decel) if forward_velocity > 0.1 else 0.0
         )
         dynamic_front_threshold = self._cfg.obstacle_front_threshold_m + stopping_distance
+        # Minimum-separation enforcement: when following a person, keep at least
+        # min_person_separation_m of standoff (the person is what the front sensor
+        # sees), velocity-scaled by the same braking margin.
+        if tracked_class == "person":
+            dynamic_front_threshold = max(
+                dynamic_front_threshold,
+                self._cfg.min_person_separation_m + stopping_distance,
+            )
 
         blocked: list[str] = []
         prox = snapshot.proximity

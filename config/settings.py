@@ -49,6 +49,7 @@ class SafetyConfig:
     lidar_cluster_distance_factor: float = 0.8
     max_sensor_age_ms: float = 500.0
     max_decel: float = 2.0
+    min_person_separation_m: float = 2.5  # enforced standoff when following a person
 
 
 @dataclass(slots=True)
@@ -93,8 +94,8 @@ class WatchdogConfig:
     max_mission_duration_s: float = 600.0  # hard cap above the soft pilot timeout
     geofence_radius_m: float = 120.0  # max horizontal distance from home
     max_altitude_m: float = 60.0  # absolute ceiling
-    battery_rtl_fraction: float = 0.20  # fraction at/below which we abort (None telemetry = skip)
-    min_person_separation_m: float = 2.5  # advisory minimum standoff from a tracked person
+    battery_rtl_fraction: float = 0.20  # fraction at/below which we abort
+    battery_endurance_s: float = 900.0  # full-charge flight time for the energy model
 
 
 @dataclass(slots=True)
@@ -130,6 +131,7 @@ class PilotConfig:
     llm_max_tokens: int = 2048  # Explicit cap on response length
     max_context_messages: int = 60  # Increased from 40 for longer missions (up to ~5 min @ 30fps)
     tool_retry_limit: int = 3
+    reflection_interval_iters: int = 12  # cadence for self-check nudges on unmet objectives
     mission_timeout_s: float = 360.0
     tick_duration_s: float = 0.1
     scan_yaw_rate: float = 0.06

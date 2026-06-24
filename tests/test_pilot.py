@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any, cast
 
+from autonomy.mission_spec import parse_mission_spec
 from autonomy.reporting import EventReporter
 from config.settings import PilotConfig
 from skypilot.models import ChatResponse
@@ -122,3 +123,29 @@ def test_llm_pilot_ignores_premature_stop_without_completion_tools() -> None:
     # Pilot exits as soon as _landing_completed is set (line 263 in pilot.py).
     # The third response was never needed because landing was confirmed after call 2.
     assert fake_client.calls == 2
+
+
+def test_reflection_injected_for_unmet_measurable_objectives() -> None:
+    pilot = LLMPilot(
+        FakeClient(), FakeTools(), EventReporter(), PilotConfig(reflection_interval_iters=2)
+    )
+    pilot._spec = parse_mission_spec("Find a truck and follow it")
+    messages: list[dict[str, object]] = []
+
+    pilot._maybe_inject_reflection(messages, iteration=2)
+
+    assert len(messages) == 1
+    assert messages[0]["role"] == "user"
+    assert "UNMET" in str(messages[0]["content"])
+
+
+def test_reflection_skipped_for_unmeasurable_task() -> None:
+    pilot = LLMPilot(
+        FakeClient(), FakeTools(), EventReporter(), PilotConfig(reflection_interval_iters=2)
+    )
+    pilot._spec = parse_mission_spec("scan around the area")
+    messages: list[dict[str, object]] = []
+
+    pilot._maybe_inject_reflection(messages, iteration=2)
+
+    assert messages == []

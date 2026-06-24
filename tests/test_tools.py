@@ -3,8 +3,12 @@ from __future__ import annotations
 import asyncio
 
 from autonomy.contracts import MissionState
+from autonomy.energy import BatteryModel
 from autonomy.mission import MissionFSM
+from autonomy.mission_spec import parse_mission_spec
 from autonomy.reporting import EventReporter
+from autonomy.watchdog import MissionWatchdog
+from config.settings import WatchdogConfig
 from skypilot.tools import ToolDispatcher
 
 
@@ -377,3 +381,57 @@ def test_transition_along_path_returns_error_dict_on_partial_failure() -> None:
     assert result is not None
     assert result["ok"] is False
     assert "mission_state" in result
+
+
+class _EnvelopeBridge:
+    home_position = (0.0, 0.0, -5.0)
+
+    def read_sensor_snapshot(self, refresh: bool = True) -> object:
+        del refresh
+
+        class _Tele:
+            position_ned = (0.0, 0.0, -5.0)
+
+        class _Snap:
+            telemetry = _Tele()
+
+        return _Snap()
+
+    def request_hover(self) -> None:
+        return None
+
+
+def test_get_mission_progress_reports_unmet_objectives() -> None:
+    dispatcher = ToolDispatcher(
+        MissionFSM(initial_state=MissionState.SCAN),
+        lambda: {"target": {}},
+        FakeBridge(),
+        EventReporter(),
+        spec=parse_mission_spec("Find a truck and follow it"),
+    )
+
+    result = asyncio.run(dispatcher._get_mission_progress({}))
+
+    assert result["ok"] is True
+    data = result["data"]
+    assert data["measurable"] is True
+    assert data["all_objectives_met"] is False  # no truck observed yet
+    assert any("truck" in obj["description"] for obj in data["objectives"])
+
+
+def test_low_battery_aborts_wait_into_emergency() -> None:
+    fsm = MissionFSM(initial_state=MissionState.SCAN)
+    dispatcher = ToolDispatcher(
+        fsm,
+        lambda: {"target": {}},
+        _EnvelopeBridge(),
+        EventReporter(),
+        watchdog=MissionWatchdog(WatchdogConfig(battery_rtl_fraction=0.5)),
+        battery_model=BatteryModel(0.001),  # drains to empty immediately
+    )
+
+    result = asyncio.run(dispatcher._wait_seconds({"seconds": 2}))
+
+    assert result["ok"] is False
+    assert result["watchdog_trigger"] == "battery"
+    assert fsm.state is MissionState.EMERGENCY

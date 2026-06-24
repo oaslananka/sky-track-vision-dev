@@ -68,6 +68,10 @@ class _FakeBridge:
         self.move_calls: list[VelocityCmd] = []
         self.takeoff_calls = 0
         self.move_to_altitude_calls: list[float] = []
+        self.tracked_classes: list[str | None] = []
+
+    def set_tracked_class(self, class_name: str | None) -> None:
+        self.tracked_classes.append(class_name)
 
     def move(self, cmd: VelocityCmd, snapshot: SensorSnapshot | None = None) -> bool:
         del snapshot

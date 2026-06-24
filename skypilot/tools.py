@@ -10,7 +10,9 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from autonomy.contracts import MissionMode, MissionState
+from autonomy.energy import BatteryModel
 from autonomy.mission import InvalidTransitionError, MissionFSM
+from autonomy.mission_spec import MissionSpec, MissionVerifier
 from autonomy.watchdog import MissionWatchdog, WatchdogVerdict
 from config.runtime_logging import log_event
 from skypilot.models import PilotToolResult
@@ -29,17 +31,23 @@ class ToolDispatcher:
         bridge: Any,
         reporter: Any,
         watchdog: MissionWatchdog | None = None,
+        battery_model: BatteryModel | None = None,
+        spec: MissionSpec | None = None,
     ) -> None:
         self._fsm = fsm
         self._scene_provider = scene_provider
         self._bridge = bridge
         self._reporter = reporter
         self._watchdog = watchdog
+        self._battery_model = battery_model
+        self._spec = spec or MissionSpec(raw_task="")
+        self._verifier = MissionVerifier()
         self._lock_loss_grace_frames = 3
         self._tools: dict[str, ToolHandler] = {
             "get_scene_state": self._get_scene_state,
             "get_target_info": self._get_target_info,
             "get_drone_status": self._get_drone_status,
+            "get_mission_progress": self._get_mission_progress,
             "set_mission_state": self._set_mission_state,
             "request_hover": self._request_hover,
             "request_scan": self._request_scan,
@@ -51,6 +59,10 @@ class ToolDispatcher:
             "wait_seconds": self._wait_seconds,
             "request_return_home": self._request_return_home,
         }
+
+    def set_spec(self, spec: MissionSpec) -> None:
+        """Provide the parsed mission contract used by get_mission_progress."""
+        self._spec = spec
 
     def _target_payload(self) -> dict[str, Any]:
         scene = self._scene_provider()
@@ -103,11 +115,16 @@ class ToolDispatcher:
         except Exception:
             return None
         home = getattr(self._bridge, "home_position", None)
+        battery_fraction = (
+            self._battery_model.fraction(self._reporter.elapsed_s)
+            if self._battery_model is not None
+            else None
+        )
         return self._watchdog.evaluate(
             elapsed_s=self._reporter.elapsed_s,
             position_ned=snapshot.telemetry.position_ned,
             home_ned=home,
-            battery_fraction=None,
+            battery_fraction=battery_fraction,
         )
 
     def _engage_emergency(self, verdict: WatchdogVerdict) -> PilotToolResult:
@@ -166,7 +183,16 @@ class ToolDispatcher:
             "get_drone_status": {
                 "description": (
                     "Get current drone status including altitude, airborne state, FSM state, "
-                    "telemetry, and mission elapsed time."
+                    "telemetry, mission elapsed time, and mission_envelope (watchdog) status."
+                ),
+                "parameters": _object_schema(),
+            },
+            "get_mission_progress": {
+                "description": (
+                    "Get progress against the auto-derived acceptance criteria: which "
+                    "objectives are met vs still outstanding, plus elapsed time and the "
+                    "mission envelope status. Use it to decide what to do next and to "
+                    "confirm every objective is met before finishing."
                 ),
                 "parameters": _object_schema(),
             },
@@ -634,6 +660,33 @@ class ToolDispatcher:
                 "mission_state": self._fsm.state.value,
             },
         }
+
+    async def _get_mission_progress(self, arguments: dict[str, Any]) -> PilotToolResult:
+        del arguments
+        report = self._reporter.finalize()
+        verdict = self._verifier.verify(self._spec, report)
+        data: dict[str, Any] = {
+            "measurable": verdict.measurable,
+            "all_objectives_met": verdict.passed,
+            "summary": verdict.summary,
+            "objectives": [
+                {
+                    "description": item.objective.description,
+                    "met": item.passed,
+                    "detail": item.detail,
+                }
+                for item in verdict.results
+            ],
+            "mission_elapsed_s": round(self._reporter.elapsed_s, 2),
+        }
+        envelope = self._check_watchdog()
+        if envelope is not None:
+            data["mission_envelope"] = {
+                "ok": not envelope.tripped,
+                "trigger": envelope.trigger,
+                "reason": envelope.reason,
+            }
+        return {"ok": True, "data": data}
 
     # ── New mission execution tools ─────────────────────────────────
 

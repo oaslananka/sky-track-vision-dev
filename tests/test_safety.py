@@ -94,3 +94,31 @@ def test_safety_allows_clear_path() -> None:
     assert evaluation.state.value == "PATH_CLEAR"
     assert evaluation.allow_forward
     assert evaluation.allow_descent
+
+
+def test_person_standoff_blocks_inside_separation_but_not_for_generic_obstacle() -> None:
+    cfg = SafetyConfig(obstacle_front_threshold_m=1.0, min_person_separation_m=3.0)
+    evaluator = SafetyEvaluator(cfg)
+
+    # 2.0m ahead: clears the generic 1.0m threshold...
+    generic = evaluator.evaluate(make_snapshot(front_m=2.0), connection_ok=True)
+    assert generic.state.value == "PATH_CLEAR"
+
+    # ...but is inside the 3.0m person standoff when following a person.
+    person = evaluator.evaluate(
+        make_snapshot(front_m=2.0), connection_ok=True, tracked_class="person"
+    )
+    assert person.state.value == "OBSTACLE_AHEAD"
+    assert "front" in person.blocked_directions
+    assert person.allow_forward is False
+
+
+def test_person_standoff_allows_forward_when_beyond_separation() -> None:
+    cfg = SafetyConfig(obstacle_front_threshold_m=1.0, min_person_separation_m=3.0)
+    evaluator = SafetyEvaluator(cfg)
+
+    person = evaluator.evaluate(
+        make_snapshot(front_m=5.0), connection_ok=True, tracked_class="person"
+    )
+    assert person.state.value == "PATH_CLEAR"
+    assert person.allow_forward is True

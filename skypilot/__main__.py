@@ -14,8 +14,10 @@ from airsim_control.client import AirSimConnectionManager
 from airsim_control.movement import DroneMovementController
 from airsim_control.sensors import SensorSuiteReader
 from autonomy.contracts import MissionState
+from autonomy.energy import BatteryModel
 from autonomy.ibvs import IBVSController
 from autonomy.mission import MissionFSM
+from autonomy.mission_spec import parse_mission_spec
 from autonomy.reporting import EventReporter, MissionReport
 from autonomy.safety import SafetyEvaluator
 from autonomy.targeting import is_priority_compatible
@@ -199,6 +201,7 @@ def run() -> None:
                     "target": {
                         "track_id": target.track_id,
                         "class_name": target.detection.class_name,
+                        "confidence": round(target.detection.confidence, 3),
                         "center": list(target.smooth_center),
                         "is_confirmed": target.is_confirmed,
                         "priority_match": is_priority_compatible(
@@ -231,7 +234,16 @@ def run() -> None:
             }
 
         watchdog = MissionWatchdog(cfg.watchdog)
-        tools = ToolDispatcher(fsm, _scene_provider, bridge, reporter, watchdog=watchdog)
+        battery_model = BatteryModel(cfg.watchdog.battery_endurance_s)
+        tools = ToolDispatcher(
+            fsm,
+            _scene_provider,
+            bridge,
+            reporter,
+            watchdog=watchdog,
+            battery_model=battery_model,
+            spec=parse_mission_spec(args.task),
+        )
         llm = LLMPilot(llm_client, tools, reporter, cfg.pilot)
         log_event(
             logger,

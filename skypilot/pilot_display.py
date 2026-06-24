@@ -570,6 +570,7 @@ class PilotDisplay:
         if self._should_hold_traffic_monitor_command(cmd, now):
             return
 
+        self._bridge.set_tracked_class(target.detection.class_name if target is not None else None)
         try:
             moved = self._bridge.move(cmd, snapshot=snapshot)
             if moved:

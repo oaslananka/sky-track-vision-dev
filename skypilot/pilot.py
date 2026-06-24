@@ -53,6 +53,10 @@ MISSION RULES
 13. A mission report only counts as the final completion report when mission_state=REPORT
     and data.completion_ready=true. Snapshot reports taken during SCAN or MONITOR do not
     complete the mission.
+14. Before you finish, call get_mission_progress and confirm all_objectives_met=true.
+    If any objective is still unmet, keep working — do not REPORT or land yet.
+15. If get_drone_status or get_mission_progress shows mission_envelope.ok=false, the safety
+    watchdog has aborted the mission. Terminate now: set_mission_state(IDLE) -> request_land.
 
 MISSION PATTERNS
 - Search / observe:
@@ -126,6 +130,36 @@ class LLMPilot:
     def _mission_completion_confirmed(self) -> bool:
         return self._mission_report_retrieved and self._landing_completed
 
+    def _maybe_inject_reflection(self, messages: list[dict[str, object]], iteration: int) -> None:
+        """Periodically nudge the planner to self-check against unmet objectives.
+
+        A lightweight reflection step: on a fixed cadence, if measurable objectives
+        remain unmet, append a user message listing exactly what is still missing so
+        the planner re-plans toward the acceptance criteria instead of drifting.
+        """
+        interval = self._cfg.reflection_interval_iters
+        if interval <= 0 or iteration == 0 or iteration % interval != 0:
+            return
+        if not self._spec.objectives or self._mission_completion_confirmed():
+            return
+        verdict = self._verifier.verify(self._spec, self._reporter.finalize())
+        if verdict.passed:
+            return
+        unmet = [item.objective.description for item in verdict.results if not item.passed]
+        if not unmet:
+            return
+        bullet = "; ".join(unmet)
+        messages.append(
+            {
+                "role": "user",
+                "content": (
+                    "Progress check: the following acceptance criteria are still UNMET — "
+                    f"{bullet}. Keep working toward them with tool calls; call "
+                    "get_mission_progress to confirm before you REPORT or land."
+                ),
+            }
+        )
+
     def _compose_system(self) -> str:
         """Append the auto-derived acceptance criteria so the planner knows what
         the mission will actually be scored against (closes the planner↔verifier
@@ -189,6 +223,7 @@ class LLMPilot:
                 iteration=iteration,
                 message_count=len(messages),
             )
+            self._maybe_inject_reflection(messages, iteration)
             response: ChatResponse = await self._client.chat(
                 messages=messages,
                 tools=self._tools.get_tool_schemas(),

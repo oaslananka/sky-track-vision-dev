@@ -29,8 +29,17 @@ class AirSimBridge:
         self._safety = safety
         self._connected = connected
         self._last_veto: str | None = None
+        self._tracked_class: str | None = None
         self._home_position: tuple[float, float, float] | None = None
         self._record_home()
+
+    def set_tracked_class(self, class_name: str | None) -> None:
+        """Tell the safety gate which class is currently being followed.
+
+        Used to enforce a minimum standoff (e.g. from a person) on the next
+        movement evaluation.
+        """
+        self._tracked_class = class_name
 
     def _record_home(self) -> None:
         """Save the current position as home for return-to-home."""
@@ -75,7 +84,7 @@ class AirSimBridge:
                         3,
                     ),
                 )
-        safety = self._safety.evaluate(snapshot, self._connected)
+        safety = self._safety.evaluate(snapshot, self._connected, tracked_class=self._tracked_class)
         if safety.state == SafetyState.SAFETY_OVERRIDE:
             self._movement.hover()
             self._last_veto = safety.reason
