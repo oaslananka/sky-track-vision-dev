@@ -4,7 +4,7 @@
 
 **LLM-Powered Autonomous Drone Perception & Mission Orchestration System**
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11–3.13](https://img.shields.io/badge/python-3.11%E2%80%933.13-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tests](https://github.com/oaslananka/sky-track-vision-dev/actions/workflows/ci.yml/badge.svg)](https://github.com/oaslananka/sky-track-vision-dev/actions)
 [![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
@@ -106,7 +106,7 @@ request_takeoff → request_move_to_altitude(4m) → request_scan → [target lo
 ```bash
 # Clone the repository
 git clone https://github.com/oaslananka/sky-track-vision-dev.git
-cd SkyTrackVision
+cd sky-track-vision-dev
 
 # Create virtual environment
 python -m venv .venv
@@ -172,7 +172,7 @@ python smoke_test.py
 python -m pytest tests/ -v
 
 # Run with coverage
-python -m pytest tests/ -v --tb=short
+python -m pytest tests/ --cov=. --cov-report=term-missing
 
 # Lint & format
 ruff check .
@@ -203,14 +203,14 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 - 🎯 **New detection classes** — extend YOLO target list and add mission modes
 - 🧠 **LLM tool integrations** — add new tools to the `ToolDispatcher`
 - 🎮 **Control algorithms** — improve or replace the IBVS controller
-- 🔐 **Safety features** — geofence & altitude ceiling now ship in `MissionWatchdog`; wire a real battery telemetry source into it, or add wind estimation and a Re-ID-based target re-acquisition channel
+- 🔐 **Safety features** — geofence, altitude ceiling, and a pluggable battery source now ship in `MissionWatchdog`; add wind estimation, or a Re-ID-based target re-acquisition channel
 - 📊 **Visualization** — dashboards, 3D trajectory plots, mission replay
 - 📖 **Documentation** — tutorials, architecture deep-dives, video demos
 
 ## 📁 Project Structure
 
 ```
-SkyTrackVision/
+sky-track-vision-dev/
 ├── main.py                  # Classic runtime entry point
 ├── skypilot.py              # SkyPilot convenience launcher
 ├── pilot.yaml               # Runtime configuration overrides
@@ -243,7 +243,7 @@ SkyTrackVision/
 ├── config/                  # Settings & logging
 ├── demo/                    # AirSim-free demo director
 ├── ui/                      # Classic runtime overlay
-├── tests/                   # Pytest suite (168 tests)
+├── tests/                   # Pytest suite (172 tests)
 ├── .github/                 # CI/CD & issue templates
 └── docs/                    # Extended documentation
 ```
@@ -260,7 +260,7 @@ SkyTrackVision/
 | Safety           | Per-frame deterministic safety evaluator (dynamic stopping distance) + mission-envelope watchdog with universal EMERGENCY abort     |
 | Verification     | Deterministic NL→objective parser with semantic completion gate                                                                  |
 | Visualization    | [OpenCV](https://opencv.org/) real-time HUD                                                                                      |
-| Language         | Python 3.11+ with full type annotations                                                                                          |
+| Language         | Python 3.11–3.13 with full type annotations (live AirSim: 3.11)                                                                  |
 
 ## 📜 License
 
