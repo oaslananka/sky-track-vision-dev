@@ -9,7 +9,7 @@ SkyTrackVision follows a strict **three-layer architecture** where each layer op
 ```mermaid
 graph TB
     subgraph "Mission Layer (~1 Hz)"
-        LLM[LLM Pilot - GPT-5-nano]
+        LLM[LLM Pilot - GPT-5-mini]
         TD[Tool Dispatcher]
         FSM[Mission FSM]
         LLM --> TD --> FSM
@@ -90,9 +90,39 @@ stateDiagram-v2
     REPORT --> IDLE
     BLOCKED --> IDLE
     BLOCKED --> SCAN
+    TRACK --> EMERGENCY
+    SCAN --> EMERGENCY
+    EMERGENCY --> IDLE
 ```
 
 Invalid transitions raise `InvalidTransitionError`. The FSM includes timeout-based recovery: if a state exceeds its maximum duration, it auto-transitions to a safe fallback.
+
+`EMERGENCY` is a **universal safe-abort state reachable from every other state** (only a few edges are drawn above to keep the diagram readable). It is entered either through the normal transition graph or, unconditionally, via `MissionFSM.emergency()` — which never raises, so an unattended mission can always reach a safe stop. The [Mission Watchdog](#mission-watchdog) is what drives the FSM into `EMERGENCY`.
+
+## Mission Watchdog
+
+While the `SafetyEvaluator` guards each *frame* against immediate hazards, the `MissionWatchdog` (`autonomy/watchdog.py`) guards the whole *mission envelope* for unattended flight. It is a pure function of telemetry and elapsed time, evaluated during `wait_seconds` and surfaced in `get_drone_status` as `mission_envelope`:
+
+| Trigger | Condition | Effect |
+|---------|-----------|--------|
+| `battery` | battery fraction ≤ `battery_rtl_fraction` (when telemetry exposes it) | EMERGENCY |
+| `timeout` | mission elapsed ≥ `max_mission_duration_s` (hard cap above the soft pilot timeout) | EMERGENCY |
+| `altitude` | altitude above `max_altitude_m` ceiling | EMERGENCY |
+| `geofence` | horizontal distance from home > `geofence_radius_m` | EMERGENCY |
+
+On a trip the watchdog drives the FSM to `EMERGENCY`, commands a hover, and tells the LLM to terminate with `IDLE → request_land`. Limits are configured in `WatchdogConfig` (see `config/settings.py`) and overridable from `pilot.yaml`.
+
+## Semantic Completion Verification
+
+The pilot enforces both a **procedural** and a **semantic** completion gate. The procedural gate is the closing protocol (`REPORT → get_mission_report → request_land`). The semantic gate (`autonomy/mission_spec.py`) parses the natural-language task into measurable objectives and checks them against the final `MissionReport`:
+
+```
+"Find a truck, follow it for 30 seconds, then land"
+  → observe(truck) AND duration(>=30s)
+  → success iff protocol_ok AND unique_track_counts.truck >= 1 AND duration_s >= 30
+```
+
+A mission that runs the closing protocol but never accomplished the objective (e.g. landed without ever seeing a truck) is reported as `objectives_unmet`, not success. The parser is deterministic and conservative: a task with no measurable objective falls back to protocol-only completion, preserving prior behaviour. The derived criteria are also injected into the system prompt so the planner is scored against goals it can see.
 
 ## Safety Gate
 

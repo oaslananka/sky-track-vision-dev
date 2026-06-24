@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# CI runs entirely AirSim-free. Every `import airsim` in the codebase is guarded
+# and degrades gracefully, so the unit tests, type-check and smoke test never need
+# the (unmaintained, Python-3.11-only) airsim wheel. Live-simulation deps are in
+# requirements-sim.txt and are exercised manually on Python 3.11, not in CI.
+
 jobs:
   lint:
     name: Lint & Format
@@ -41,14 +46,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install build deps (airsim needs numpy+msgpack)
-        run: pip install setuptools numpy msgpack-rpc-python backports.ssl_match_hostname
-
-      - name: Build airsim wheel
-        run: pip wheel --no-build-isolation --no-deps --wheel-dir /tmp/wheelhouse airsim
-
       - name: Install dependencies
-        run: pip install --find-links /tmp/wheelhouse -r requirements-dev.txt
+        run: pip install -r requirements-dev.txt
 
       - name: Mypy
         run: mypy --install-types --non-interactive . 2>&1 || mypy .
@@ -58,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v5
 
@@ -67,14 +66,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install build deps (airsim needs numpy+msgpack+setuptools)
-        run: pip install setuptools numpy msgpack-rpc-python backports.ssl_match_hostname
-
-      - name: Build airsim wheel
-        run: pip wheel --no-build-isolation --no-deps --wheel-dir /tmp/wheelhouse airsim
-
       - name: Install dependencies
-        run: pip install --find-links /tmp/wheelhouse -r requirements-dev.txt
+        run: pip install -r requirements-dev.txt
 
       - name: Run tests
         run: python -m pytest tests/ -v --tb=short
@@ -90,14 +83,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install build deps (airsim needs numpy+msgpack+setuptools)
-        run: pip install setuptools numpy msgpack-rpc-python backports.ssl_match_hostname
-
-      - name: Build airsim wheel
-        run: pip wheel --no-build-isolation --no-deps --wheel-dir /tmp/wheelhouse airsim
-
       - name: Install dependencies
-        run: pip install --find-links /tmp/wheelhouse -r requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Run smoke test
         run: python smoke_test.py

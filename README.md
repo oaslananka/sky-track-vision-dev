@@ -82,7 +82,8 @@ LLM-powered mission executor. You give it a natural language task, and the GPT p
 1. **Plans** — converts the task into a sequence of tool calls
 2. **Executes** — manages FSM transitions (SCAN → TRACK → MONITOR → REPORT)
 3. **Controls** — delegates to the IBVS controller for real-time tracking
-4. **Guards** — every movement passes through the `SafetyEvaluator` before reaching AirSim
+4. **Guards** — every movement passes through the `SafetyEvaluator` before reaching AirSim, while a mission-level `MissionWatchdog` enforces the flight envelope (timeout, geofence, altitude, battery) and can force a universal `EMERGENCY` safe-abort with no human in the loop
+5. **Verifies** — the task is parsed into measurable acceptance criteria, and the mission is only scored a success if those objectives are met (not merely if the closing protocol ran) — see [Semantic Completion Verification](docs/architecture.md#semantic-completion-verification)
 
 ```
 "Take off, scan for trucks, follow the nearest one for 30 seconds, then land."
@@ -95,7 +96,8 @@ request_takeoff → request_move_to_altitude(4m) → request_scan → [target lo
 
 ### Prerequisites
 
-- **Python 3.11+**
+- **Python 3.11–3.13** for the core library, tests, and demo mode.
+  - ⚠️ **Live AirSim requires Python 3.11 specifically.** The `airsim` package's RPC stack relies on the stdlib `asyncore` module, which was removed in Python 3.12 ([PEP 594](https://peps.python.org/pep-0594/)). Every AirSim import in the codebase is guarded, so the library still runs on 3.12/3.13 — only the live simulator bridge is unavailable there.
 - **Unreal Engine 5.x + AirSim plugin** (for live simulation) — [AirSim Setup Guide](https://microsoft.github.io/AirSim/)
 - **OpenAI API key** (for SkyPilot LLM runtime)
 
@@ -111,11 +113,14 @@ python -m venv .venv
 source .venv/bin/activate  # Linux/macOS
 # .venv\Scripts\Activate.ps1  # Windows PowerShell
 
-# Install dependencies
+# Install core dependencies (AirSim-free; works on Python 3.11–3.13)
 pip install -r requirements.txt
 
 # For development (lint, test, type-check)
 pip install -r requirements-dev.txt
+
+# For live AirSim simulation only (Python 3.11) — see file header for build notes
+pip install -r requirements-sim.txt
 ```
 
 ### Configuration
@@ -186,7 +191,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 - 🎯 **New detection classes** — extend YOLO target list and add mission modes
 - 🧠 **LLM tool integrations** — add new tools to the `ToolDispatcher`
 - 🎮 **Control algorithms** — improve or replace the IBVS controller
-- 🔐 **Safety features** — add geofencing, battery monitoring, wind estimation
+- 🔐 **Safety features** — geofence & altitude ceiling now ship in `MissionWatchdog`; wire a real battery telemetry source into it, or add wind estimation and a Re-ID-based target re-acquisition channel
 - 📊 **Visualization** — dashboards, 3D trajectory plots, mission replay
 - 📖 **Documentation** — tutorials, architecture deep-dives, video demos
 
@@ -202,8 +207,10 @@ SkyTrackVision/
 │   ├── contracts.py         # Typed dataclass contracts
 │   ├── ibvs.py              # Cascade PID visual servoing
 │   ├── follow_controller.py # Motion primitive resolver
-│   ├── mission.py           # Mission FSM with state graph
-│   ├── safety.py            # Deterministic safety evaluator
+│   ├── mission.py           # Mission FSM with state graph (+ EMERGENCY safe-abort)
+│   ├── mission_spec.py      # NL→objective parser + semantic completion verifier
+│   ├── watchdog.py          # Mission-envelope watchdog (timeout/geofence/battery)
+│   ├── safety.py            # Deterministic per-frame safety evaluator
 │   ├── reporting.py         # Mission telemetry collector
 │   └── scene_reasoner.py    # Detection-to-insight summarizer
 ├── vision/                  # Computer vision pipeline
@@ -224,7 +231,7 @@ SkyTrackVision/
 ├── config/                  # Settings & logging
 ├── demo/                    # AirSim-free demo director
 ├── ui/                      # Classic runtime overlay
-├── tests/                   # Pytest suite (46 tests)
+├── tests/                   # Pytest suite (152 tests)
 ├── .github/                 # CI/CD & issue templates
 └── docs/                    # Extended documentation
 ```
@@ -238,7 +245,8 @@ SkyTrackVision/
 | Visual Servoing  | Cascade PID — Image-Based Visual Servoing (IBVS)                                                                                 |
 | Target Tracking  | Constant-velocity Kalman filter with EMA smoothing                                                                               |
 | Mission Planning | LLM function-calling via [OpenAI API](https://platform.openai.com/)                                                              |
-| Safety           | Deterministic safety evaluator with dynamic stopping distance                                                                    |
+| Safety           | Per-frame deterministic safety evaluator (dynamic stopping distance) + mission-envelope watchdog with universal EMERGENCY abort     |
+| Verification     | Deterministic NL→objective parser with semantic completion gate                                                                  |
 | Visualization    | [OpenCV](https://opencv.org/) real-time HUD                                                                                      |
 | Language         | Python 3.11+ with full type annotations                                                                                          |
 

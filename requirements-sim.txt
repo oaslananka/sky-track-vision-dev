@@ -1,0 +1,17 @@
+# Live AirSim simulation dependencies (optional).
+#
+# The `airsim` PyPI package (1.8.1, last released 2022) is unmaintained. Its RPC
+# stack (airsim -> msgpack-rpc-python -> tornado) relies on the stdlib `asyncore`
+# module, which was REMOVED in Python 3.12 (PEP 594). AirSim therefore only runs
+# on Python 3.11. Install these only when driving the real Unreal + AirSim
+# simulator, and use a Python 3.11 environment.
+#
+# Build note: the airsim wheel has no build isolation metadata, so pre-install
+# its build deps and build without isolation:
+#   pip install setuptools numpy msgpack-rpc-python
+#   pip install --no-build-isolation airsim
+#
+# The core library, unit tests, lint, type-check and smoke test do NOT need this
+# file — every AirSim import in the codebase is guarded and degrades gracefully.
+-r requirements.txt
+airsim>=1.8.1
