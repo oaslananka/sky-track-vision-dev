@@ -42,7 +42,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install build deps (airsim needs numpy+msgpack)
-        run: pip install setuptools numpy msgpack-rpc-python
+        run: pip install setuptools numpy msgpack-rpc-python backports.ssl_match_hostname
 
       - name: Build airsim wheel
         run: pip wheel --no-build-isolation --no-deps --wheel-dir /tmp/wheelhouse airsim
@@ -68,7 +68,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install build deps (airsim needs numpy+msgpack+setuptools)
-        run: pip install setuptools numpy msgpack-rpc-python
+        run: pip install setuptools numpy msgpack-rpc-python backports.ssl_match_hostname
 
       - name: Build airsim wheel
         run: pip wheel --no-build-isolation --no-deps --wheel-dir /tmp/wheelhouse airsim
@@ -91,7 +91,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install build deps (airsim needs numpy+msgpack+setuptools)
-        run: pip install setuptools numpy msgpack-rpc-python
+        run: pip install setuptools numpy msgpack-rpc-python backports.ssl_match_hostname
 
       - name: Build airsim wheel
         run: pip wheel --no-build-isolation --no-deps --wheel-dir /tmp/wheelhouse airsim
