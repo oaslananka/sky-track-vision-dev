@@ -10,5 +10,11 @@ class SafetyAgent:
     def __init__(self, evaluator: SafetyEvaluator) -> None:
         self._evaluator = evaluator
 
-    def evaluate(self, snapshot: SensorSnapshot, connection_ok: bool) -> SafetyEvaluation:
-        return self._evaluator.evaluate(snapshot, connection_ok)
+    def evaluate(
+        self,
+        snapshot: SensorSnapshot,
+        connection_ok: bool,
+        *,
+        tracked_class: str | None = None,
+    ) -> SafetyEvaluation:
+        return self._evaluator.evaluate(snapshot, connection_ok, tracked_class=tracked_class)

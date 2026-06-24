@@ -98,6 +98,7 @@ class SkyTrackVisionApp:
                 safety = self._safety_agent.evaluate(
                     world.sensors,
                     world.connection_ok or self._cfg.demo_mode,
+                    tracked_class=target.detection.class_name if target is not None else None,
                 )
                 safe_cmd = self._apply_safety(cmd, safety)
                 if self._auto_follow and self._movement is not None:

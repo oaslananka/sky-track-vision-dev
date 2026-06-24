@@ -427,7 +427,7 @@ def test_low_battery_aborts_wait_into_emergency() -> None:
         _EnvelopeBridge(),
         EventReporter(),
         watchdog=MissionWatchdog(WatchdogConfig(battery_rtl_fraction=0.5)),
-        battery_model=BatteryModel(0.001),  # drains to empty immediately
+        battery_source=BatteryModel(0.001),  # drains to empty immediately
     )
 
     result = asyncio.run(dispatcher._wait_seconds({"seconds": 2}))

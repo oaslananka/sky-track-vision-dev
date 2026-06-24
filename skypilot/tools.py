@@ -10,7 +10,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from autonomy.contracts import MissionMode, MissionState
-from autonomy.energy import BatteryModel
+from autonomy.energy import BatterySource
 from autonomy.mission import InvalidTransitionError, MissionFSM
 from autonomy.mission_spec import MissionSpec, MissionVerifier
 from autonomy.watchdog import MissionWatchdog, WatchdogVerdict
@@ -31,7 +31,7 @@ class ToolDispatcher:
         bridge: Any,
         reporter: Any,
         watchdog: MissionWatchdog | None = None,
-        battery_model: BatteryModel | None = None,
+        battery_source: BatterySource | None = None,
         spec: MissionSpec | None = None,
     ) -> None:
         self._fsm = fsm
@@ -39,7 +39,7 @@ class ToolDispatcher:
         self._bridge = bridge
         self._reporter = reporter
         self._watchdog = watchdog
-        self._battery_model = battery_model
+        self._battery_source = battery_source
         self._spec = spec or MissionSpec(raw_task="")
         self._verifier = MissionVerifier()
         self._lock_loss_grace_frames = 3
@@ -116,8 +116,8 @@ class ToolDispatcher:
             return None
         home = getattr(self._bridge, "home_position", None)
         battery_fraction = (
-            self._battery_model.fraction(self._reporter.elapsed_s)
-            if self._battery_model is not None
+            self._battery_source.fraction(self._reporter.elapsed_s)
+            if self._battery_source is not None
             else None
         )
         return self._watchdog.evaluate(

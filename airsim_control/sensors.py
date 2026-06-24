@@ -143,7 +143,24 @@ class SensorSuiteReader:
             yaw_deg=math.degrees(yaw),
             altitude_m=altitude_m,
             gps_valid=state.gps_location is not None,
+            battery_remaining=self._read_battery_fraction(state),
         )
+
+    @staticmethod
+    def _read_battery_fraction(state: Any) -> float | None:
+        """Remaining charge fraction if the platform exposes it, else None.
+
+        Open-source AirSim has no battery telemetry, so this is None; a
+        hardware/MAVLink-backed client can surface it as ``battery_remaining``
+        and the watchdog will prefer it over the time-based estimate.
+        """
+        value = getattr(state, "battery_remaining", None)
+        if value is None:
+            return None
+        try:
+            return max(0.0, min(1.0, float(value)))
+        except (TypeError, ValueError):
+            return None
 
     def _quaternion_to_euler(
         self,

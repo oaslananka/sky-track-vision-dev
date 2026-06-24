@@ -45,6 +45,10 @@ class TelemetryReading:
     yaw_deg: float
     altitude_m: float
     gps_valid: bool
+    # Remaining charge fraction in [0, 1], or None when the platform exposes no
+    # battery telemetry (the default for open-source AirSim). A real source
+    # (hardware/MAVLink) can populate this and it is preferred over the estimate.
+    battery_remaining: float | None = None
 
 
 @dataclass(slots=True)

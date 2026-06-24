@@ -14,7 +14,7 @@ from airsim_control.client import AirSimConnectionManager
 from airsim_control.movement import DroneMovementController
 from airsim_control.sensors import SensorSuiteReader
 from autonomy.contracts import MissionState
-from autonomy.energy import BatteryModel
+from autonomy.energy import BatteryModel, TelemetryBatterySource
 from autonomy.ibvs import IBVSController
 from autonomy.mission import MissionFSM
 from autonomy.mission_spec import parse_mission_spec
@@ -234,14 +234,17 @@ def run() -> None:
             }
 
         watchdog = MissionWatchdog(cfg.watchdog)
-        battery_model = BatteryModel(cfg.watchdog.battery_endurance_s)
+        battery_source = TelemetryBatterySource(
+            get_telemetry=bridge.get_telemetry,
+            fallback=BatteryModel(cfg.watchdog.battery_endurance_s),
+        )
         tools = ToolDispatcher(
             fsm,
             _scene_provider,
             bridge,
             reporter,
             watchdog=watchdog,
-            battery_model=battery_model,
+            battery_source=battery_source,
             spec=parse_mission_spec(args.task),
         )
         llm = LLMPilot(llm_client, tools, reporter, cfg.pilot)
