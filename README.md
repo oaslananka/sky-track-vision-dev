@@ -8,6 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tests](https://github.com/oaslananka/sky-track-vision-dev/actions/workflows/ci.yml/badge.svg)](https://github.com/oaslananka/sky-track-vision-dev/actions)
 [![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/oaslananka/sky-track-vision-dev)
 
 <br/>
 
