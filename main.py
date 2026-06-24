@@ -29,6 +29,7 @@ from autonomy.safety import SafetyEvaluator
 from config.settings import AppConfig, load_app_config
 from demo.director import DemoDirector
 from ui.overlay import OverlayRenderer
+from ui.recorder import RealtimeRecorder
 from vision.detector import MultiClassDetector
 from vision.tracker import KalmanTracker
 from vision.utils import FpsCounter
