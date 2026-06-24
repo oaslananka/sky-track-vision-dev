@@ -22,6 +22,10 @@ _An open-source framework for building autonomous drone intelligence using YOLOv
 
 </div>
 
+<p align="center">
+  <img src="assets/demo.gif" alt="SkyTrackVision Demo" width="720"/>
+</p>
+
 ---
 
 ## 🎯 Purpose
