@@ -52,23 +52,18 @@ To add a new tool to the SkyPilot:
 
 ### Step 1: Define the Tool Schema
 
-In `skypilot/tools.py`, add to the `TOOL_SCHEMAS` list:
+In `skypilot/tools.py`, add an entry to the `schemas` dict inside
+`ToolDispatcher.get_tool_schemas()` (the `_object_schema` helper builds the
+JSON-schema body; the `type`/`function`/`strict` wrapper is added for you):
 
 ```python
-{
-    "type": "function",
-    "function": {
-        "name": "my_new_tool",
-        "description": "What this tool does",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "param1": {"type": "string", "description": "Description"},
-            },
-            "required": ["param1"],
-        },
-    },
-}
+"my_new_tool": {
+    "description": "What this tool does",
+    "parameters": _object_schema(
+        {"param1": {"type": "string", "description": "Description"}},
+        required=["param1"],
+    ),
+},
 ```
 
 ### Step 2: Implement the Handler
@@ -82,12 +77,12 @@ async def _my_new_tool(self, arguments: dict[str, Any]) -> PilotToolResult:
     return {"ok": True, "message": "Done", "mission_state": self._fsm.state.value}
 ```
 
-### Step 3: Register in Dispatch Table
+### Step 3: Register in the Dispatch Table
 
-Add the mapping in `ToolDispatcher.__init__`:
+Add the mapping to the `self._tools` dict in `ToolDispatcher.__init__`:
 
 ```python
-self._handlers["my_new_tool"] = self._my_new_tool
+self._tools["my_new_tool"] = self._my_new_tool
 ```
 
 ### Step 4: Add Tests
@@ -99,22 +94,47 @@ Create tests in `tests/test_tools.py` verifying:
 
 ## Mission Modes
 
+Defined in `MissionMode` (`autonomy/contracts.py`):
+
 | Mode | Description | Default Target |
-|------|-------------|---------------|
+|------|-------------|----------------|
 | `PEDESTRIAN_WATCH` | Track and follow people | `person` |
+| `TRAFFIC_MONITOR` | Patrol roads and count unique vehicles (no per-vehicle follow) | road vehicles |
 | `SEARCH` | General search and follow | Configurable |
-| `SURVEILLANCE` | Monitoring mode | Area-based |
+| `ORBIT` | Orbit a locked target | Configurable |
+| `MANUAL` | Operator-driven | — |
+
+## Safety, Watchdog & Completion
+
+Three layers keep an unattended mission honest (see
+[architecture.md](architecture.md) for details):
+
+- **Per-frame safety gate** (`SafetyEvaluator`) — obstacle/altitude vetoes the LLM
+  cannot override; also enforces a minimum standoff when following a person.
+- **Mission watchdog** (`MissionWatchdog`) — envelope limits (timeout, geofence,
+  altitude ceiling, battery) that force a universal `EMERGENCY` safe-abort.
+- **Semantic completion** (`mission_spec.py`) — the task is parsed into measurable
+  objectives; the mission is only a success if they are met. Call
+  `get_mission_progress` to see per-objective status before finishing.
 
 ## Configuration
 
-Key settings in `pilot.yaml`:
+Key settings in `pilot.yaml` (defaults in `config/settings.py`):
 
 ```yaml
 pilot:
-  model: gpt-5-nano          # LLM model
-  max_context_messages: 40    # Conversation history length
-  tool_retry_limit: 3         # Max retries per tool call
-  tick_duration_s: 0.5        # Control tick interval
-  cruise_altitude_m: 4.0      # Default operating altitude
-  scan_yaw_rate: 0.35         # Scanning rotation speed
+  model: gpt-5-mini            # LLM model (alt: gpt-5-nano)
+  max_context_messages: 60     # Conversation history length
+  tool_retry_limit: 3          # Max retries per tool call
+  reflection_interval_iters: 12 # Cadence of unmet-objective self-checks
+  tick_duration_s: 0.1         # Control tick interval
+  cruise_altitude_m: 4.0       # Default operating altitude
+  scan_yaw_rate: 0.06          # Scanning rotation speed
+
+watchdog:
+  max_mission_duration_s: 600  # Hard cap -> EMERGENCY
+  geofence_radius_m: 120       # Max horizontal distance from home
+  max_altitude_m: 60           # Altitude ceiling
+  battery_rtl_fraction: 0.20   # Abort at/below this charge
+  battery_endurance_s: 900     # Full-charge flight time (energy model)
 ```

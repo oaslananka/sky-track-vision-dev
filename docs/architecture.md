@@ -176,18 +176,20 @@ The SkyPilot uses OpenAI function calling to control the drone. Available tools:
 
 | Tool | Description |
 |------|-------------|
+| `get_scene_state` | Current frame class counts, registry summary, and target info |
+| `get_target_info` | Details of the currently tracked target |
+| `get_drone_status` | Altitude, telemetry, FSM state, elapsed time, and mission-envelope status |
+| `get_mission_progress` | Per-objective acceptance status + envelope health (semantic completion) |
+| `get_mission_report` | Cumulative mission report (unique counts, completion readiness) |
+| `set_mission_state` | FSM transition with BFS path resolution |
 | `request_takeoff` | Arm and take off |
-| `request_land` | Land at current position |
-| `request_move_to_altitude` | Move to specific altitude |
+| `request_land` | Land at current position (REPORT/IDLE only) |
+| `request_move_to_altitude` | Move to a specific altitude |
 | `request_scan` | Begin scanning (transition to SCAN) |
-| `request_follow` | Lock and follow target (transition to TRACK) |
-| `request_return_home` | Return to takeoff position |
+| `request_follow` | Lock and follow the target (transition to TRACK) |
 | `request_hover` | Stop and hover in place |
-| `set_mission_state` | Direct FSM transition (with BFS path resolution) |
-| `wait_seconds` | Pause execution for N seconds |
-| `get_telemetry` | Read current sensor data |
-| `get_mission_report` | Generate mission summary |
-| `complete_mission` | End the mission |
+| `request_return_home` | Return to the takeoff position |
+| `wait_seconds` | Continue the current action for N seconds (watchdog-guarded) |
 
 ### BFS State Path Resolution
 

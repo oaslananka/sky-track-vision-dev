@@ -59,6 +59,16 @@ safety:
   landing_caution_m: 0.5
   lidar_cluster_threshold: 3500
   lidar_cluster_distance_factor: 0.05
+  min_person_separation_m: 2.5  # enforced standoff when following a person
+
+# Mission-envelope hard limits → force a universal EMERGENCY safe-abort.
+watchdog:
+  enabled: true
+  max_mission_duration_s: 600.0  # hard cap above the soft pilot timeout
+  geofence_radius_m: 120.0       # max horizontal distance from home
+  max_altitude_m: 60.0           # altitude ceiling
+  battery_rtl_fraction: 0.20     # abort at/below this charge fraction
+  battery_endurance_s: 900.0     # full-charge flight time for the energy model
 
 pilot:
   provider: openai
@@ -69,6 +79,7 @@ pilot:
   log_level: DEBUG
   max_context_messages: 60  # Increased from 40 for longer missions (up to ~5 min @ 30fps)
   tool_retry_limit: 3
+  reflection_interval_iters: 12  # cadence for unmet-objective self-check nudges
   mission_timeout_s: 360.0
   tick_duration_s: 0.1
   scan_yaw_rate: 0.06

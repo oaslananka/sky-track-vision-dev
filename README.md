@@ -182,6 +182,18 @@ ruff format .
 mypy .
 ```
 
+### Mission Benchmark
+
+Score missions on success rate, **zero-intervention rate**, and safety-violation
+rate — the metrics that matter for unattended autonomy:
+
+```bash
+python scripts/benchmark.py --demo   # offline, deterministic scorecard
+```
+
+Collect [`MissionTrial`](autonomy/benchmark.py) records from live runs (one per
+seeded scenario) and pass them to `score_trials` to benchmark the real pilot.
+
 ## 🤝 Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
@@ -223,7 +235,7 @@ SkyTrackVision/
 ├── skypilot/                # LLM mission orchestration
 │   ├── __main__.py          # SkyPilot entry point
 │   ├── pilot.py             # LLM conversation loop
-│   ├── tools.py             # Tool dispatcher (12 tools)
+│   ├── tools.py             # Tool dispatcher (14 tools)
 │   ├── llm_client.py        # OpenAI adapter with retry logic
 │   ├── airsim_bridge.py     # Safety-gated movement bridge
 │   ├── pilot_display.py     # Real-time pilot HUD
@@ -231,7 +243,7 @@ SkyTrackVision/
 ├── config/                  # Settings & logging
 ├── demo/                    # AirSim-free demo director
 ├── ui/                      # Classic runtime overlay
-├── tests/                   # Pytest suite (152 tests)
+├── tests/                   # Pytest suite (168 tests)
 ├── .github/                 # CI/CD & issue templates
 └── docs/                    # Extended documentation
 ```
