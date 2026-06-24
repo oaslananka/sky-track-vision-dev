@@ -156,9 +156,13 @@ python smoke_test.py
 # Record a demo video (rendered HUD + overlays)
 python main.py --demo --record outputs/demo.mp4 --record-fps 30
 
+# Record a SkyPilot mission HUD video (requires AirSim)
+python -m skypilot "Scan for pedestrians and report" --record outputs/mission.mp4 --record-fps 30
+
 The recorder writes the final rendered OpenCV frame, including HUD and overlays,
 using a wall-clock based fixed-FPS writer so demo playback stays close to real
-time even if processing jitter occurs.
+time even if processing jitter occurs. Use --no-hud to run SkyPilot without the
+display; --record requires the HUD window and will error if combined with --no-hud.
 ```
 
 ### Keyboard Controls (Classic Runtime)

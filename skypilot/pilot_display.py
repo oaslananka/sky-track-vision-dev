@@ -31,6 +31,7 @@ from autonomy.safety import SafetyEvaluator
 from autonomy.targeting import is_priority_compatible
 from config.runtime_logging import log_event
 from config.settings import PilotConfig, VisionConfig
+from ui.recorder import RealtimeRecorder
 from vision.detector import MultiClassDetector
 from vision.perception_worker import PerceptionWorker
 from vision.tracker import KalmanTracker
@@ -94,6 +95,8 @@ class PilotDisplay:
         mission_id: str,
         priority_class: str = "truck",
         mission_mode: MissionMode = MissionMode.SEARCH,
+        record_path: str | None = None,
+        record_fps: int = 30,
     ) -> None:
         self._camera = camera
         self._cfg = pilot_cfg
@@ -162,6 +165,9 @@ class PilotDisplay:
         self._hud_display_scale = 0.5  # downscale HUD for display
         self._components_started = False
         self._next_command_apply_at = 0.0
+        self._recorder: RealtimeRecorder | None = (
+            RealtimeRecorder(record_path, fps=record_fps) if record_path is not None else None
+        )
 
     def _priority_label(self) -> str:
         if self._priority_class == "vehicle":
@@ -200,6 +206,9 @@ class PilotDisplay:
         llm_tail = getattr(self, "_llm_tail", None)
         if llm_logger is not None and llm_tail in llm_logger.handlers:
             llm_logger.removeHandler(llm_tail)
+        recorder = getattr(self, "_recorder", None)
+        if recorder is not None:
+            recorder.close()
         if self._window_enabled:
             with contextlib.suppress(cv2.error):
                 cv2.destroyAllWindows()
@@ -352,6 +361,9 @@ class PilotDisplay:
 
                 # ── Draw HUD ──────────────────────────────────
                 canvas = self._draw_hud(frame, detections, target)
+
+                if self._recorder is not None:
+                    self._recorder.add(canvas)
 
                 if self._window_enabled:
                     # Use cv2's WINDOW_NORMAL native OS scaling instead of manual downscaling

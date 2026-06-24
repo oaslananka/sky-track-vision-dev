@@ -49,7 +49,21 @@ def run() -> None:
     parser.add_argument("task", nargs="?", default="Scan for pedestrians and report")
     parser.add_argument("--config", default="pilot.yaml")
     parser.add_argument("--no-hud", action="store_true", help="Disable pilot HUD window")
+    parser.add_argument(
+        "--record",
+        default=None,
+        help="Record the rendered HUD output to a video file, e.g. outputs/mission.mp4.",
+    )
+    parser.add_argument(
+        "--record-fps",
+        type=int,
+        default=30,
+        help="Target FPS for --record output (default: 30).",
+    )
     args = parser.parse_args()
+
+    if args.no_hud and args.record:
+        parser.error("--record requires the HUD window; use --no-hud alone or drop --record")
 
     cfg = load_app_config(args.config)
     logger = configure_logging(cfg.pilot)
@@ -144,6 +158,8 @@ def run() -> None:
                     mission_id=mission_id,
                     priority_class=priority_class,
                     mission_mode=mission_mode,
+                    record_path=args.record,
+                    record_fps=args.record_fps,
                 )
                 display.start()
                 log_event(

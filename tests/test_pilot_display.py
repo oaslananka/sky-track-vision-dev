@@ -1135,3 +1135,30 @@ def test_pilot_display_fit_text_to_width_keeps_short_line() -> None:
     fitted = display._fit_text_to_width(short_line, 400, scale=0.41)
 
     assert fitted == short_line
+
+
+def test_pilot_display_recorder_closes_on_cleanup() -> None:
+    import unittest.mock as umock
+
+    display = PilotDisplay.__new__(PilotDisplay)
+    recorder = umock.MagicMock()
+    display._recorder = recorder
+    display._window_enabled = False
+    display._cam_thread = umock.MagicMock()
+    display._components_started = True
+
+    display._cleanup_components()
+
+    recorder.close.assert_called_once()
+
+
+def test_pilot_display_recorder_none_cleanup_does_not_raise() -> None:
+    import unittest.mock as umock
+
+    display = PilotDisplay.__new__(PilotDisplay)
+    display._recorder = None
+    display._window_enabled = False
+    display._cam_thread = umock.MagicMock()
+    display._components_started = True
+
+    display._cleanup_components()

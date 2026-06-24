@@ -5,3 +5,4 @@ opencv-python>=4.8.0
 openai>=1.30.0
 PyYAML>=6.0
 ultralytics>=8.0.196
+lap>=0.5.12

@@ -39,3 +39,11 @@ JINMUT
 dist/
 build/
 *.egg-info/
+
+.venv311/
+
+# Recorded output videos
+outputs/*.mp4
+outputs/*.avi
+outputs/*.mov
+outputs/*.gif
