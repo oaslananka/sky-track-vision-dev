@@ -38,7 +38,12 @@ from vision.utils import FpsCounter
 class SkyTrackVisionApp:
     """Classic runtime loop for AirSim-backed or demo-mode drone tracking."""
 
-    def __init__(self, cfg: AppConfig) -> None:
+    def __init__(
+        self,
+        cfg: AppConfig,
+        record_path: str | None = None,
+        record_fps: int = 30,
+    ) -> None:
         self._cfg = cfg
         self._fps = FpsCounter()
         self._overlay = OverlayRenderer(cfg.overlay_mode)
@@ -55,6 +60,11 @@ class SkyTrackVisionApp:
         self._auto_follow = cfg.auto_follow
         self._overlay_visible = True
         self._demo = DemoDirector()
+        self._recorder: RealtimeRecorder | None = (
+            RealtimeRecorder(record_path, fps=record_fps)
+            if record_path is not None
+            else None
+        )
 
         self._connection: AirSimConnectionManager | None = None
         self._camera: DroneCameraStream | None = None
@@ -68,6 +78,8 @@ class SkyTrackVisionApp:
             self._sensors = SensorSuiteReader(client, cfg.airsim)
 
     def close(self) -> None:
+        if self._recorder is not None:
+            self._recorder.close()
         if self._connection is not None:
             self._connection.disconnect()
         cv2.destroyAllWindows()
@@ -128,6 +140,8 @@ class SkyTrackVisionApp:
                     cv2.LINE_AA,
                 )
                 cv2.imshow("SkyTrackVision", rendered)
+                if self._recorder is not None:
+                    self._recorder.add(rendered)
                 if self._handle_keys(cv2.waitKey(1) & 0xFF):
                     break
                 elapsed = time.monotonic() - tick_start
@@ -238,6 +252,17 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="SkyTrackVision runtime")
     parser.add_argument("--config", default="pilot.yaml")
     parser.add_argument("--demo", action="store_true")
+    parser.add_argument(
+        "--record",
+        default=None,
+        help="Record the rendered HUD output to a video file, e.g. outputs/demo.mp4.",
+    )
+    parser.add_argument(
+        "--record-fps",
+        type=int,
+        default=30,
+        help="Target FPS for --record output.",
+    )
     return parser.parse_args()
 
 
@@ -246,7 +271,11 @@ def main() -> None:
     config = load_app_config(args.config)
     if args.demo:
         config.demo_mode = True
-    app = SkyTrackVisionApp(config)
+    app = SkyTrackVisionApp(
+        config,
+        record_path=args.record,
+        record_fps=args.record_fps,
+    )
     app.run_loop()
 
 

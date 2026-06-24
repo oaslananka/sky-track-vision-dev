@@ -30,7 +30,7 @@ class VideoWriterLike(Protocol):
 
     def release(self) -> None: ...
 
-    def isOpened(self) -> bool: ...
+    def isOpened(self) -> bool: ...  # noqa: N802
 
 
 def _default_writer(path: str, fps: int, size: tuple[int, int]) -> VideoWriterLike:
@@ -44,19 +44,19 @@ def _default_writer(path: str, fps: int, size: tuple[int, int]) -> VideoWriterLi
 class RealtimeRecorder:
     """Records frames at a constant output fps regardless of loop jitter."""
 
-    # Cap catch-up duplicates per frame so a momentary stall can't snowball the
-    # encode workload — which would itself cause the stutter we are avoiding.
     _MAX_CATCHUP_FRAMES = 5
 
     def __init__(
         self,
-        path: str,
+        path: str | Path,
         fps: int = 30,
         *,
         writer_factory: Callable[[str, int, tuple[int, int]], VideoWriterLike] = _default_writer,
         clock: Callable[[], float] = time.perf_counter,
     ) -> None:
-        self._path = path
+        if fps <= 0:
+            raise ValueError(f"fps must be positive, got {fps}")
+        self._path = str(path)
         self._fps = fps
         self._interval = 1.0 / fps
         self._writer_factory = writer_factory
@@ -64,7 +64,7 @@ class RealtimeRecorder:
         self._writer: VideoWriterLike | None = None
         self._start: float | None = None
         self._written = 0
-        self._failed = False
+        self._frame_size: tuple[int, int] | None = None
 
     @property
     def path(self) -> str:
@@ -72,27 +72,24 @@ class RealtimeRecorder:
 
     @property
     def frames_written(self) -> int:
-        """Number of frames actually handed to the writer."""
         return self._written
 
     @property
     def active(self) -> bool:
-        """True once the writer opened successfully and frames are flowing."""
-        return self._writer is not None and not self._failed
+        return self._writer is not None
 
     def add(self, frame: Any) -> None:
-        """Hand off the latest rendered frame; duplicates fill wall-clock gaps."""
-        if self._failed:
-            return
+        h, w = frame.shape[:2]
+        if self._frame_size is not None and (w, h) != self._frame_size:
+            raise ValueError(
+                f"Frame size changed: expected {self._frame_size}, got ({w}, {h})"
+            )
         if self._writer is None:
             self._open(frame)
-            if self._failed:
-                return
         writer = self._writer
         assert writer is not None and self._start is not None
 
         now = self._clock()
-        # How many frames *should* have been written by now for real-time playback.
         target = int((now - self._start) / self._interval) + 1
         catchup = 0
         while self._written < target and catchup < self._MAX_CATCHUP_FRAMES:
@@ -100,16 +97,17 @@ class RealtimeRecorder:
             self._written += 1
             catchup += 1
         if self._written < target:
-            # Hit the catch-up cap (pathological stall): drop the backlog by
-            # rebasing the timeline so the next frame isn't reported as behind.
             self._start = now - self._written * self._interval
 
     def _open(self, frame: Any) -> None:
         height, width = frame.shape[:2]
+        self._frame_size = (width, height)
         writer = self._writer_factory(self._path, self._fps, (width, height))
         if not writer.isOpened():
-            self._failed = True
-            return
+            raise RuntimeError(
+                f"VideoWriter failed to open for {self._path} "
+                f"(fps={self._fps}, size=({width}, {height}))"
+            )
         self._writer = writer
         self._start = self._clock()
         self._written = 0
@@ -118,3 +116,5 @@ class RealtimeRecorder:
         if self._writer is not None:
             self._writer.release()
             self._writer = None
+            self._start = None
+            self._written = 0

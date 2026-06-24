@@ -152,6 +152,13 @@ python -m skypilot "Take off, find a truck, follow it for 30 seconds, then land"
 
 # Quick smoke test
 python smoke_test.py
+
+# Record a demo video (rendered HUD + overlays)
+python main.py --demo --record outputs/demo.mp4 --record-fps 30
+
+The recorder writes the final rendered OpenCV frame, including HUD and overlays,
+using a wall-clock based fixed-FPS writer so demo playback stays close to real
+time even if processing jitter occurs.
 ```
 
 ### Keyboard Controls (Classic Runtime)
