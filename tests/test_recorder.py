@@ -39,7 +39,7 @@ def make_frame(height: int = 480, width: int = 640) -> np.ndarray:
     return np.zeros((height, width, 3), dtype=np.uint8)
 
 
-def factory(mock: MockVideoWriter):
+def factory(mock: MockVideoWriter):  # type: ignore[no-untyped-def]
     def _factory(path: str, fps: int, size: tuple[int, int]) -> MockVideoWriter:
         return mock
 

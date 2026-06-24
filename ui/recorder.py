@@ -37,7 +37,7 @@ def _default_writer(path: str, fps: int, size: tuple[int, int]) -> VideoWriterLi
     import cv2
 
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
     return cv2.VideoWriter(path, fourcc, fps, size)
 
 
