@@ -168,14 +168,19 @@ class MissionFSM:
                     )
 
         # Grace period for target loss - use prediction if target recently seen
-        if self._state == MissionState.TRACK and target and not target.is_confirmed:
-            if target.frames_since_seen > 0 and target.frames_since_seen < 10:
-                # Target lost recently, use predicted position
-                return MotionIntent(
-                    primitive=MotionPrimitive.FOLLOW,
-                    target_id=target.track_id,
-                    reason="tracking_prediction",
-                )
+        if (
+            self._state == MissionState.TRACK
+            and target
+            and not target.is_confirmed
+            and target.frames_since_seen > 0
+            and target.frames_since_seen < 10
+        ):
+            # Target lost recently, use predicted position
+            return MotionIntent(
+                primitive=MotionPrimitive.FOLLOW,
+                target_id=target.track_id,
+                reason="tracking_prediction",
+            )
 
         match self._state:
             case MissionState.SCAN:

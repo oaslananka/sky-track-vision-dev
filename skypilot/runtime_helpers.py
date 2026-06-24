@@ -62,9 +62,10 @@ def _has_multi_target_intent(text: str) -> bool:
 def resolve_mission_mode(task: str, priority_class: str | None = None) -> MissionMode:
     """Infer the high-level mission mode from operator text."""
     lowered = task.lower()
-    if any(re.search(pattern, lowered) for pattern in _COUNT_SURVEY_PATTERNS):
-        if priority_class == "vehicle" or "road" in lowered or "traffic" in lowered:
-            return MissionMode.TRAFFIC_MONITOR
+    if any(re.search(pattern, lowered) for pattern in _COUNT_SURVEY_PATTERNS) and (
+        priority_class == "vehicle" or "road" in lowered or "traffic" in lowered
+    ):
+        return MissionMode.TRAFFIC_MONITOR
     if priority_class == "person":
         return MissionMode.PEDESTRIAN_WATCH
     return MissionMode.SEARCH

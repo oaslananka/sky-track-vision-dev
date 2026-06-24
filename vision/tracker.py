@@ -6,13 +6,13 @@ from typing import cast
 
 import numpy as np
 
-logger = logging.getLogger("skytrackvision.vision.tracker")
-
 from autonomy.contracts import Detection, TargetDirection, TrackedTarget
 from autonomy.targeting import is_priority_compatible
 from config.settings import VisionConfig
 from vision.reid import AppearanceStore
 from vision.utils import resolve_direction
+
+logger = logging.getLogger("skytrackvision.vision.tracker")
 
 
 @dataclass(slots=True)

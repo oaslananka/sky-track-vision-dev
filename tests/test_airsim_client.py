@@ -15,18 +15,18 @@ class _SuccessfulClient:
         self.api_enabled = False
         self.armed = False
 
-    def confirmConnection(self) -> None:
+    def confirmConnection(self) -> None:  # noqa: N802
         return None
 
-    def enableApiControl(self, enabled: bool, vehicle_name: str | None = None) -> None:
+    def enableApiControl(self, enabled: bool, vehicle_name: str | None = None) -> None:  # noqa: N802
         self.api_enabled = enabled
 
-    def armDisarm(self, armed: bool, vehicle_name: str | None = None) -> None:
+    def armDisarm(self, armed: bool, vehicle_name: str | None = None) -> None:  # noqa: N802
         self.armed = armed
 
 
 class _HangingClient(_SuccessfulClient):
-    def confirmConnection(self) -> None:
+    def confirmConnection(self) -> None:  # noqa: N802
         while True:
             time.sleep(0.05)
 

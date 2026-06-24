@@ -161,7 +161,7 @@ class AppearanceStore:
     ) -> np.ndarray | None:
         """Extract an HSV-based histogram feature vector from the target crop.
 
-        Uses Hue (36 bins, 2× weight) + Saturation (16 bins) for better
+        Uses Hue (36 bins, 2x weight) + Saturation (16 bins) for better
         light-invariance compared to raw BGR histograms.  For production-grade
         Re-ID, replace with CLIP (ViT-B/32) or OSNet feature extraction.
         """

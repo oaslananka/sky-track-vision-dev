@@ -303,5 +303,5 @@ def _supports_sampling_overrides(model: str) -> bool:
     reject temperature/top_p overrides — omit them so the API uses its defaults.
     """
     normalized = model.strip().lower()
-    _NO_SAMPLING = ("o1", "o3", "o1-mini", "o3-mini", "gpt-5")
-    return not any(normalized.startswith(p) for p in _NO_SAMPLING)
+    _no_sampling = ("o1", "o3", "o1-mini", "o3-mini", "gpt-5")
+    return not any(normalized.startswith(p) for p in _no_sampling)

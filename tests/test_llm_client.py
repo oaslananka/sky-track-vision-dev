@@ -79,5 +79,5 @@ async def test_chat_raises_value_error_on_null_message() -> None:
 
     mock_client.chat.completions.create = _fake_create
 
-    with pytest.raises(ValueError, match="choices\\[0\\].message is None"):
+    with pytest.raises(ValueError, match=r"choices\[0\].message is None"):
         await adapter.chat(messages=[], tools=[], system="")

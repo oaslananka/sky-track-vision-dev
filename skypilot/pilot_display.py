@@ -354,8 +354,8 @@ class PilotDisplay:
                 canvas = self._draw_hud(frame, detections, target)
 
                 if self._window_enabled:
-                    # Rely on cv2's WINDOW_NORMAL native OS hardware scaling rather than doing manual downscaling,
-                    # to keep the sub-pixel text rendering sharp.
+                    # Use cv2's WINDOW_NORMAL native OS scaling instead of manual downscaling
+                    # to keep sub-pixel text rendering sharp.
                     cv2.imshow(self._WINDOW_NAME, canvas)
 
                     key = cv2.waitKey(self._cfg.hud_wait_key_ms) & 0xFF

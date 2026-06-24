@@ -158,10 +158,12 @@ class SkyTrackVisionApp:
         modified_vx = cmd.vx
         modified_vz = cmd.vz
 
-        if safety.state.value == "OBSTACLE_AHEAD" and "front" in safety.blocked_directions:
-            # Gradual slowdown instead of hard stop
-            if cmd.vx > 0:
-                modified_vx = cmd.vx * 0.3  # 70% reduction
+        if (
+            safety.state.value == "OBSTACLE_AHEAD"
+            and "front" in safety.blocked_directions
+            and cmd.vx > 0
+        ):
+            modified_vx = cmd.vx * 0.3
 
         if not safety.allow_forward and cmd.vx > 0:
             modified_vx = 0.0
