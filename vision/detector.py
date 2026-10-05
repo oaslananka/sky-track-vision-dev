@@ -82,7 +82,10 @@ class MultiClassDetector:
             max_det=self._cfg.max_detections,
             half=self._half,
         )
-        return self._parse_results(results[0], with_track_ids=False)
+        first_result = next(iter(results), None)
+        if first_result is None:
+            return []
+        return self._parse_results(first_result, with_track_ids=False)
 
     def track(self, frame: np.ndarray) -> list[Detection]:
         results = self._model.track(
@@ -97,7 +100,10 @@ class MultiClassDetector:
             max_det=self._cfg.max_detections,
             half=self._half,
         )
-        return self._parse_results(results[0], with_track_ids=True)
+        first_result = next(iter(results), None)
+        if first_result is None:
+            return []
+        return self._parse_results(first_result, with_track_ids=True)
 
     def _parse_results(self, result: object, *, with_track_ids: bool) -> list[Detection]:
         boxes = getattr(result, "boxes", None)
